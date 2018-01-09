@@ -95,7 +95,7 @@ while 1:
         generation_clean = list(map(lambda x:remove_substrings(x, list(special_codes.keys())), generation))
         acc_1g = te_1.evaluate(generation_clean)
         acc_2g = te_2.evaluate(generation_clean)
-        print("[Iteration = {0}]\n{1}\n=== 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} ===\n".format(it, "\n".join(generation),
+        print("{1}\n=== Iteration {0} | 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} ===\n".format(it, "\n".join(generation[0:20]),
                                                                      np.mean(acc_1g), np.mean(acc_2g)))
         st = sess.run(gan.summ.scalar_test_performance, feed_dict={gan.ph.acc_1g: np.mean(acc_1g),
                                                                    gan.ph.acc_2g: np.mean(acc_2g)})

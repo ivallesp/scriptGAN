@@ -27,7 +27,7 @@ def clear_generation(s):
 
 def remove_substrings(s, substrings):
     for substr in substrings:
-        s.replace(substr, "")
+        s=s.replace(substr, "")
     return s
 
 
@@ -57,6 +57,9 @@ class TokenEvaluator:
             lists_of_tokens = list(map(lambda s:[w.lower() for w in s], lists_of_tokens))
 
         lists_of_grams = self.calculate_ngrams(lists_of_tokens)
-        lists_of_grams = filter(lambda x:len(x), lists_of_grams) # Remove the empty lists (e.g. bigrams of 1 token)
+        
+        if self.n_grams>1: # Remove n_grams composed of one-char tokens
+            lists_of_grams = list(map(lambda s: list(filter(lambda ng: sum([len(w) for w in ng])>self.n_grams, s)), lists_of_grams)) 
+        lists_of_grams = list(filter(lambda x:len(x), lists_of_grams)) # Remove the empty lists (e.g. bigrams of 1 token)   
         accuracies = [np.mean(list(map(lambda w:w in self.unique_items, s))) for s in lists_of_grams]
         return accuracies
