@@ -1,0 +1,7 @@
+*.pyc
+*.tsv
+input
+models
+outputs
+.idea
+settings.json
