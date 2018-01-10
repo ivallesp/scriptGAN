@@ -24,7 +24,7 @@ charset_cardinality = len(char_dict_inverse)
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V2"
+version_id = "V6"
 logs_path = get_tensorboard_logs_path()
 BATCH_SIZE = 32
 critic_its = 10
@@ -69,22 +69,22 @@ latent_batch_gen = get_latent_vectors_generator(BATCH_SIZE, noise_depth)
 while 1:
     for _ in range(critic_its):
         tweet_batch = next(tweet_batch_gen)
-        z = next(latent_batch_gen)
-        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: tweet_batch, gan.ph.z: z})
+        zc, zd = next(latent_batch_gen)
+        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: tweet_batch, gan.ph.z_cont: zc, gan.ph.z_disc: zd})
 
     tweet_batch = next(tweet_batch_gen)
-    z = next(latent_batch_gen)
+    zc, zd = next(latent_batch_gen)
 
-    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: tweet_batch, gan.ph.z: z})
+    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: tweet_batch, gan.ph.z_cont: zc, gan.ph.z_disc: zd})
 
     if (it % test_period) == 0:  # Reporting...
         generation=[]
         for bt in range(batches_test):
             tweet_batch = next(tweet_batch_gen)
-            z = next(latent_batch_gen)
+            zc, zd = next(latent_batch_gen)
             s, generation_code = sess.run([gan.summ.scalar_final_performance, gan.core_model.G],
                                           feed_dict={gan.ph.codes_in: tweet_batch,
-                                                     gan.ph.z: z})
+                                                     gan.ph.z_cont: zc, gan.ph.z_disc: zd})
 
             generation.extend(list(map(
                 lambda x: "".join(list(map(lambda c: char_dict_inverse.get(c, "<ERROR>"),

@@ -45,16 +45,22 @@ def build_discriminator(input_, reuse=False):
     return x
 
 
-def build_generator(z, max_length, batch_size, vocabulary_size):
+def build_generator(z, zd, max_length, batch_size, vocabulary_size):
     with tf.variable_scope("Generator", reuse=False):
         bn_z = BatchNorm(name="batch_normalization_z")
         bn_zh = BatchNorm(name="batch_normalization_zh")
         bn_zc = BatchNorm(name="batch_normalization_zc")
+        bn_mixer_1 = BatchNorm(name="batch_normalization_mixer_1")
+        bn_mixer_2 = BatchNorm(name="batch_normalization_mixer_2")
+
         bn_d_1 = BatchNorm(name="batch_normalization_d_1")
         bn_d_2 = BatchNorm(name="batch_normalization_d_2")
         bn_d_3 = BatchNorm(name="batch_normalization_d_3")
 
-        z_norm = bn_z(z)
+        z_norm = tf.concat([bn_z(z), zd], axis=1)
+        z_norm = tf.layers.dense(z_norm, 1024, activation = tf.nn.relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_mixer_1")
+        z_norm = tf.layers.dense(bn_mixer_1(z_norm), 1024, activation = tf.nn.relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_mixer_2")
+        z_norm = bn_mixer_2(z_norm)
         zh_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
         zc_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
 
@@ -67,7 +73,7 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
         d = tf.layers.dense(bn_d_3(d), vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_3")
 
         unstacked_output = tf.reshape(d, shape=[batch_size, max_length, vocabulary_size], name="g_unstack_LSTM")
-        o=tf.nn.softmax(unstacked_output)
+        o = tf.nn.softmax(unstacked_output)
     return(o)
 
 
@@ -107,16 +113,20 @@ class GAN:
     def define_placeholders(self):
         with tf.variable_scope("Placeholders"):
             codes_in = tf.placeholder(dtype=tf.int32, shape=(self.batch_size, self.max_length), name="codes_in")
-            z = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.noise_depth], name="z")
+            z_cont = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.noise_depth], name="z")
+            z_disc = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.noise_depth], name="z")
+
             acc_1g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_1g")
             acc_2g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_2g")
             acc_3g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_3g")
-        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g}
+        return {"codes_in": codes_in, "z_cont": z_cont, "z_disc": z_disc,
+                "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g}
 
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
             tweet = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
-            G = build_generator(z=self.placeholders.z,
+            G = build_generator(z=self.placeholders.z_cont,
+                                zd=self.placeholders.z_disc,
                                 max_length=self.max_length,
                                 batch_size=self.batch_size,
                                 vocabulary_size=self.vocabulary_size)

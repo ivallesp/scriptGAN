@@ -37,7 +37,8 @@ def get_batcher(iterable, vocabulary_dict, batch_size, start_code, unknown_code,
 def get_latent_vectors_generator(BATCH_SIZE, noise_depth):
     while 1:
         z = np.random.randn(BATCH_SIZE, noise_depth)
-        yield (z)
+        zd = np.random.randint(-1, 1, size=[BATCH_SIZE, noise_depth])+0.0
+        yield (z, zd)
 
 
 def encode_sentences(sentence, vocabulary_dict, start_code, unknown_code, end_code, max_length):
