@@ -160,7 +160,7 @@ class GAN:
 
             test_scalar_probes = {"1_gram_accuracy": self.placeholders.acc_1g,
                                   "2_gram_accuracy": self.placeholders.acc_2g,
-                                  "2_gram_accuracy": self.placeholders.acc_3g}
+                                  "3_gram_accuracy": self.placeholders.acc_3g}
             test_performance_scalar = [tf.summary.scalar(k, v, family=self.name) for k, v in test_scalar_probes.items()]
 
         return {"scalar_final_performance": tf.summary.merge(final_performance_scalar),
