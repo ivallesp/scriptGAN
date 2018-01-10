@@ -24,7 +24,7 @@ charset_cardinality = len(char_dict_inverse)
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V4"
+version_id = "V5"
 logs_path = get_tensorboard_logs_path()
 BATCH_SIZE = 32
 critic_its = 10
