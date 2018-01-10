@@ -38,8 +38,11 @@ it = 0
 
 te_1 = TokenEvaluator(n_grams=1)
 te_2 = TokenEvaluator(n_grams=2)
+te_3 = TokenEvaluator(n_grams=2)
 te_1.fit(list_of_real_sentences=sentences)
 te_2.fit(list_of_real_sentences=sentences)
+te_3.fit(list_of_real_sentences=sentences)
+
 
 gan = GAN(batch_size=BATCH_SIZE, noise_depth=noise_depth, max_length=max_length, vocabulary_size=charset_cardinality)
 
@@ -95,6 +98,8 @@ while 1:
         generation_clean = list(map(lambda x:remove_substrings(x, list(special_codes.keys())), generation))
         acc_1g = te_1.evaluate(generation_clean)
         acc_2g = te_2.evaluate(generation_clean)
+        acc_3g = te_3.evaluate(generation_clean)
+
         print("{1}\n=== Iteration {0} | 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} ===\n".format(it, "\n".join(generation[0:20]),
                                                                      np.mean(acc_1g), np.mean(acc_2g)))
         st = sess.run(gan.summ.scalar_test_performance, feed_dict={gan.ph.acc_1g: np.mean(acc_1g),
