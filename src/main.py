@@ -38,7 +38,7 @@ it = 0
 
 te_1 = TokenEvaluator(n_grams=1)
 te_2 = TokenEvaluator(n_grams=2)
-te_3 = TokenEvaluator(n_grams=2)
+te_3 = TokenEvaluator(n_grams=3)
 te_1.fit(list_of_real_sentences=sentences)
 te_2.fit(list_of_real_sentences=sentences)
 te_3.fit(list_of_real_sentences=sentences)
@@ -100,10 +100,12 @@ while 1:
         acc_2g = te_2.evaluate(generation_clean)
         acc_3g = te_3.evaluate(generation_clean)
 
-        print("{1}\n=== Iteration {0} | 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} ===\n".format(it, "\n".join(generation[0:20]),
-                                                                     np.mean(acc_1g), np.mean(acc_2g)))
+        print("{1}\n=== Iteration {0} | 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} | 3-gram acc: {4:.5f} ===\n".format(it,
+                                                                     "\n".join(generation[0:20]),
+                                                                     np.mean(acc_1g), np.mean(acc_2g), np.mean(acc_3g)))
         st = sess.run(gan.summ.scalar_test_performance, feed_dict={gan.ph.acc_1g: np.mean(acc_1g),
-                                                                   gan.ph.acc_2g: np.mean(acc_2g)})
+                                                                   gan.ph.acc_2g: np.mean(acc_2g),
+                                                                   gan.ph.acc_3g: np.mean(acc_3g)})
 
 
         sw.add_summary(s, it)
