@@ -37,10 +37,10 @@ def build_discriminator(input_, reuse=False):
         x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4_2")
         print(x.shape)
-        x = tf.layers.average_pooling1d(x, pool_size=8, strides=2, name="pooling_4")
-
-        x = tf.layers.conv1d(x, filters=1, kernel_size=1, strides=1, activation=None,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_5_final")
+        x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_4")
+        x = tf.contrib.layers.flatten(x)
+        x = tf.layers.dense(x, units=1, activation=None,
+                            kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_output")
         print(x.shape)
     return x
 
