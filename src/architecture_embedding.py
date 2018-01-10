@@ -80,7 +80,7 @@ class GAN:
         self.noise_depth = noise_depth
         self.vocabulary_size = vocabulary_size
         self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
-        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00001)
+        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00015)
         self.define_computation_graph()
 
         # Aliases
