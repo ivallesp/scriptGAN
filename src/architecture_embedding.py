@@ -103,8 +103,8 @@ class GAN:
             z = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.noise_depth], name="z")
             acc_1g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_1g")
             acc_2g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_2g")
-
-        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g}
+            acc_3g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_3g")
+        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g}
 
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
@@ -151,7 +151,8 @@ class GAN:
                                         for k, v in train_final_scalar_probes.items()]
 
             test_scalar_probes = {"1_gram_accuracy": self.placeholders.acc_1g,
-                                  "2_gram_accuracy": self.placeholders.acc_2g}
+                                  "2_gram_accuracy": self.placeholders.acc_2g,
+                                  "3_gram_accuracy": self.placeholders.acc_3g}
             test_performance_scalar = [tf.summary.scalar(k, v, family=self.name) for k, v in test_scalar_probes.items()]
 
         return {"scalar_final_performance": tf.summary.merge(final_performance_scalar),
