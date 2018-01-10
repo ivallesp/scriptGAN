@@ -45,7 +45,7 @@ def build_discriminator(input_, reuse=False):
     return x
 
 
-def build_generator(z, max_length, batch_size, vocabulary_size):
+def build_generator(z, max_length, batch_size, n_neurons_rnn, vocabulary_size):
     with tf.variable_scope("Generator", reuse=False):
         bn_z = BatchNorm(name="batch_normalization_z")
         bn_zh = BatchNorm(name="batch_normalization_zh")
@@ -55,14 +55,14 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
         bn_d_3 = BatchNorm(name="batch_normalization_d_3")
 
         z_norm = bn_z(z)
-        zh_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
-        zc_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
+        zh_projected = tf.layers.dense(z_norm, n_neurons_rnn, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
+        zc_projected = tf.layers.dense(z_norm, n_neurons_rnn, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
 
         output_dec, states_dec = build_lstm_feed_back_layer(bn_zh(zh_projected), bn_zc(zc_projected),
                                                             max_length=max_length, name="gen_feed_back")
 
         lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
-        d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
+        d = tf.layers.dense(bn_d_1(lstm_stacked_output), 1024, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
         d = tf.layers.dense(bn_d_2(d), 1024, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
         d = tf.layers.dense(bn_d_3(d), vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_3")
 
@@ -81,7 +81,7 @@ class NameSpacer:
 class GAN:
     def __init__(self, batch_size, noise_depth, max_length, vocabulary_size, name="GAN"):
         self.name = name
-        self.n_neurons_rnn_gen = 1024
+        self.n_neurons_rnn_gen = 4096
         self.batch_size = batch_size
         self.max_length = max_length
         self.noise_depth = noise_depth
@@ -119,6 +119,7 @@ class GAN:
             G = build_generator(z=self.placeholders.z,
                                 max_length=self.max_length,
                                 batch_size=self.batch_size,
+                                n_neurons_rnn=self.n_neurons_rnn_gen,
                                 vocabulary_size=self.vocabulary_size)
             D_real = build_discriminator(input_=tweet)
             D_fake = build_discriminator(input_=G, reuse=True)
