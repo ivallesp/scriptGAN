@@ -7,34 +7,34 @@ from src.nn_frankenstein.normalization import BatchNorm
 
 def build_discriminator(input_, reuse=False):
     with tf.variable_scope("Discriminator", reuse=reuse):
-        x = tf.layers.conv1d(input_, filters=64, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
+        x = tf.layers.conv1d(input_, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1_1")
 
-        x = tf.layers.conv1d(x, filters=64, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
+        x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_1")
 
-        x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
+        x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_2_1")
 
-        x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
+        x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_2_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_2")
 
-        x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
+        x = tf.layers.conv1d(x, filters=1024, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_3_1")
 
-        x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
+        x = tf.layers.conv1d(x, filters=1024, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_3_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_3")
 
-        x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
+        x = tf.layers.conv1d(x, filters=2048, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4_1")
 
-        x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
+        x = tf.layers.conv1d(x, filters=2048, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=8, strides=2, name="pooling_4")
@@ -55,15 +55,15 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
         bn_d_3 = BatchNorm(name="batch_normalization_d_3")
 
         z_norm = bn_z(z)
-        zh_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
-        zc_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
+        zh_projected = tf.layers.dense(z_norm, 4096, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
+        zc_projected = tf.layers.dense(z_norm, 4096, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
 
         output_dec, states_dec = build_lstm_feed_back_layer(bn_zh(zh_projected), bn_zc(zc_projected),
                                                             max_length=max_length, name="gen_feed_back")
 
         lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
         d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
-        d = tf.layers.dense(bn_d_2(d), 1024, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
+        d = tf.layers.dense(bn_d_2(d), 256, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
         d = tf.layers.dense(bn_d_3(d), vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_3")
 
         unstacked_output = tf.reshape(d, shape=[batch_size, max_length, vocabulary_size], name="g_unstack_LSTM")
