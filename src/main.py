@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 import codecs
 
-from src.architecture_embedding import GAN
+from src.architecture_ctgan import GAN
 from src.common_paths import *
 from src.data_tools import load_preprocessed_data, get_batcher, get_latent_vectors_generator
 from src.tensorflow_utilities import start_tensorflow_session, get_summary_writer, TensorFlowSaver
@@ -24,7 +24,7 @@ charset_cardinality = len(char_dict_inverse)
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V2"
+version_id = "V10"
 logs_path = get_tensorboard_logs_path()
 BATCH_SIZE = 32
 critic_its = 10

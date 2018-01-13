@@ -5,43 +5,52 @@ from src.nn_frankenstein.decoder import build_lstm_feed_back_layer
 from src.nn_frankenstein.normalization import BatchNorm
 
 
-def build_discriminator(input_, reuse=False):
+def build_discriminator(input_, reuse=False, return_second_to_last=False):
     with tf.variable_scope("Discriminator", reuse=reuse):
         x = tf.layers.conv1d(input_, filters=64, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1_1")
-
+        x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_1_1")
         x = tf.layers.conv1d(x, filters=64, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1_2")
+        x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_1_2")
+
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_1")
 
         x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_2_1")
-
+        x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_2_1")
         x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_2_2")
+        x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_2_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_2")
 
         x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_3_1")
-
+        x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_3_1")
         x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_3_2")
+        x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_3_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_3")
 
         x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4_1")
-
+        x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_4_1")
         x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4_2")
+        x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_4_2")
         print(x.shape)
+        x_second_to_last = x
         x = tf.layers.average_pooling1d(x, pool_size=8, strides=2, name="pooling_4")
 
         x = tf.layers.conv1d(x, filters=1, kernel_size=1, strides=1, activation=None,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_5_final")
+
         print(x.shape)
+        if return_second_to_last:
+            return x, x_second_to_last
     return x
 
 
@@ -115,28 +124,42 @@ class GAN:
 
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
-            tweet = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
+            code_in = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
             G = build_generator(z=self.placeholders.z,
                                 max_length=self.max_length,
                                 batch_size=self.batch_size,
                                 vocabulary_size=self.vocabulary_size)
-            D_real = build_discriminator(input_=tweet)
+            D_real, D_real_ = build_discriminator(input_=code_in, return_second_to_last=True)
+            D_real_2, D_real_2_ = build_discriminator(input_=code_in, return_second_to_last=True, reuse=True)
             D_fake = build_discriminator(input_=G, reuse=True)
-            epsilon = tf.random_uniform(shape=tweet[:, :, 0:1].shape, minval=0., maxval=1.)
-            interp = (epsilon) * G + (1 - epsilon) * tweet
-            D_interpolates = build_discriminator(input_=interp, reuse=True)
 
-            grad_interpolated = tf.gradients(D_interpolates, [interp])[0]
-        return {"G": G, "D_real": D_real, "D_fake": D_fake, "grad_interpolated": grad_interpolated}
+            D_real_ = tf.reshape(D_real_, [self.batch_size, -1])
+            D_real_2_ = tf.reshape(D_real_2, [self.batch_size, -1])
+
+            # Gradient Penalty
+            lambda_1 = 10
+            epsilon = tf.random_uniform(shape=code_in[:, :, 0:1].shape, minval=0., maxval=1.)
+            interpolation = (epsilon) * G + (1 - epsilon) * code_in
+            D_interpolates = build_discriminator(input_=interpolation, reuse=True)
+            gradient_interpolated = tf.gradients(D_interpolates, [interpolation])[0]
+            grads_l2 = tf.sqrt(tf.reduce_sum(tf.square(gradient_interpolated),
+                                             reduction_indices=[1, 2], keep_dims=True))  # Norm 2
+            gradient_penalty = lambda_1 * ((grads_l2 - 1) ** 2)
+
+            # Consistency Term
+            lambda_2 = 2
+            M = 0.0
+            consistency_term = lambda_2 * tf.square(D_real - D_real_2)
+            consistency_term += tf.expand_dims(lambda_2 * 0.1 * tf.reduce_mean(tf.square(D_real_ - D_real_2_), reduction_indices=[1], keep_dims=True), 2)
+            consistency_term = tf.maximum(consistency_term - M, 0.0 * (consistency_term - M))
+
+        return {"G": G, "D_real": D_real, "D_fake": D_fake, "gradient_penalty": gradient_penalty, "consistency_term": consistency_term}
 
     def define_losses(self):
-        grads_l2 = tf.sqrt(tf.reduce_sum(tf.square(self.core_model.grad_interpolated),
-                                         reduction_indices=[1, 2], keep_dims=True))  # Norm 2
-        gradient_penalty = (grads_l2 - 1) ** 2
         with tf.variable_scope("Losses"):
             loss_d_real = self.core_model.D_real
             loss_d_fake = - self.core_model.D_fake
-            loss_d = loss_d_fake + loss_d_real + 10 * gradient_penalty
+            loss_d = loss_d_fake + loss_d_real + self.core_model.gradient_penalty + self.core_model.consistency_term
             loss_g = self.core_model.D_fake
         return {"loss_d_real": loss_d_real, "loss_d_fale": loss_d_fake, "loss_d": loss_d, "loss_g": loss_g}
 
