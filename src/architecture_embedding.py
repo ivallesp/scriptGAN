@@ -7,34 +7,34 @@ from src.nn_frankenstein.conv1d_blocks import inception_1d
 
 def build_discriminator(input_, reuse=False):
     with tf.variable_scope("Discriminator", reuse=reuse):
-        x = inception_1d(input_, is_train=True, depth=1, norm_function=None, norm_input=False,
+        x = inception_1d(input_, is_train=True, depth=2, norm_function=None, norm_input=False,
                          activ_function=leaky_relu, name="conv1d_1_1")
 
-        x = inception_1d(x, is_train=True, depth=1, norm_function=None, norm_input=False,
+        x = inception_1d(x, is_train=True, depth=2, norm_function=None, norm_input=False,
                          activ_function=leaky_relu, name="conv1d_1_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_1")
 
-        x = inception_1d(x, is_train=True, depth=2, norm_function=None, norm_input=False,
+        x = inception_1d(x, is_train=True, depth=3, norm_function=None, norm_input=False,
                          activ_function=leaky_relu, name="conv1d_2_1")
 
-        x = inception_1d(x, is_train=True, depth=2, norm_function=None, norm_input=False,
+        x = inception_1d(x, is_train=True, depth=3, norm_function=None, norm_input=False,
                          activ_function=leaky_relu, name="conv1d_2_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_2")
 
-        x = inception_1d(x, is_train=True, depth=3, norm_function=None, norm_input=False,
+        x = inception_1d(x, is_train=True, depth=4, norm_function=None, norm_input=False,
                          activ_function=leaky_relu, name="conv1d_3_1")
 
-        x = inception_1d(x, is_train=True, depth=3, norm_function=None, norm_input=False,
+        x = inception_1d(x, is_train=True, depth=4, norm_function=None, norm_input=False,
                          activ_function=leaky_relu, name="conv1d_3_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_3")
 
-        x = inception_1d(x, is_train=True, depth=4, norm_function=None, norm_input=False,
+        x = inception_1d(x, is_train=True, depth=5, norm_function=None, norm_input=False,
                          activ_function=leaky_relu, name="conv1d_4_1")
 
-        x = inception_1d(x, is_train=True, depth=4, norm_function=None, norm_input=False,
+        x = inception_1d(x, is_train=True, depth=5, norm_function=None, norm_input=False,
                          activ_function=leaky_relu, name="conv1d_4_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=8, strides=2, name="pooling_4")
@@ -81,13 +81,13 @@ class NameSpacer:
 class GAN:
     def __init__(self, batch_size, noise_depth, max_length, vocabulary_size, name="GAN"):
         self.name = name
-        self.n_neurons_rnn_gen = 4096
+        self.n_neurons_rnn_gen = 512
         self.batch_size = batch_size
         self.max_length = max_length
         self.noise_depth = noise_depth
         self.vocabulary_size = vocabulary_size
         self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
-        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00001)
+        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00025)
         self.define_computation_graph()
 
         # Aliases
@@ -137,7 +137,7 @@ class GAN:
         with tf.variable_scope("Losses"):
             loss_d_real = self.core_model.D_real
             loss_d_fake = - self.core_model.D_fake
-            loss_d = loss_d_fake + loss_d_real + 10 * gradient_penalty
+            loss_d = loss_d_fake + loss_d_real + 100 * gradient_penalty
             loss_g = self.core_model.D_fake
         return {"loss_d_real": loss_d_real, "loss_d_fale": loss_d_fake, "loss_d": loss_d, "loss_g": loss_g}
 
