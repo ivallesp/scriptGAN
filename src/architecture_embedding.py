@@ -111,23 +111,26 @@ class GAN:
             acc_1g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_1g")
             acc_2g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_2g")
             acc_3g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_3g")
-        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g}
+            std_dev = tf.placeholder(dtype=tf.float32, shape=(1), name="std_dev")
+        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g, "std_dev_codes": std_dev}
 
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
-            tweet = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
+            code = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
+            code += tf.random_normal(shape=list(map(lambda x:x.value, code.get_shape())), mean=0, stddev=self.placeholders.std_dev_codes, name="code_noise")
+            code = tf.clip_by_value(code, 0, 1, name="code_clipped")
             G = build_generator(z=self.placeholders.z,
                                 max_length=self.max_length,
                                 batch_size=self.batch_size,
                                 vocabulary_size=self.vocabulary_size)
-            D_real = build_discriminator(input_=tweet)
+            D_real = build_discriminator(input_=code)
             D_fake = build_discriminator(input_=G, reuse=True)
-            epsilon = tf.random_uniform(shape=tweet[:, :, 0:1].shape, minval=0., maxval=1.)
-            interp = (epsilon) * G + (1 - epsilon) * tweet
+            epsilon = tf.random_uniform(shape=code[:, :, 0:1].shape, minval=0., maxval=1.)
+            interp = (epsilon) * G + (1 - epsilon) * code
             D_interpolates = build_discriminator(input_=interp, reuse=True)
 
             grad_interpolated = tf.gradients(D_interpolates, [interp])[0]
-        return {"G": G, "D_real": D_real, "D_fake": D_fake, "grad_interpolated": grad_interpolated}
+        return {"G": G, "D_real": D_real, "D_fake": D_fake, "grad_interpolated": grad_interpolated, "code": code}
 
     def define_losses(self):
         grads_l2 = tf.sqrt(tf.reduce_sum(tf.square(self.core_model.grad_interpolated),

@@ -1,14 +1,16 @@
 # coding: utf-8
 
-import numpy as np
-import tensorflow as tf
 import codecs
+
+import tensorflow as tf
 
 from src.architecture_embedding import GAN
 from src.common_paths import *
 from src.data_tools import load_preprocessed_data, get_batcher, get_latent_vectors_generator
+from src.general_utilities import get_exponential_generator
 from src.tensorflow_utilities import start_tensorflow_session, get_summary_writer, TensorFlowSaver
 from src.text_tools import *
+
 # Load configuration
 config = json.load(open("settings.json"))
 
@@ -24,7 +26,7 @@ charset_cardinality = len(char_dict_inverse)
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V2"
+version_id = "V12"
 logs_path = get_tensorboard_logs_path()
 BATCH_SIZE = 32
 critic_its = 10
@@ -32,6 +34,7 @@ noise_depth = 100
 batches_test = 10
 test_period = 100
 save_period = 5000
+max_std_noise, min_std_noise = [0.2, 0.005]
 max_length = np.max(list(map(len, sentences)))
 
 it = 0
@@ -55,36 +58,38 @@ sess.run(tf.global_variables_initializer())
 
 # Define generators
 
-tweet_batch_gen = get_batcher(sentences, char_dict, batch_size=BATCH_SIZE,
-                              start_code=special_codes["<START>"],
-                              unknown_code=special_codes["<UNK>"],
-                              end_code=special_codes["<END>"],
-                              max_length=max_length)
+batch_gen = get_batcher(sentences, char_dict, batch_size=BATCH_SIZE,
+                        start_code=special_codes["<START>"],
+                        unknown_code=special_codes["<UNK>"],
+                        end_code=special_codes["<END>"],
+                        max_length=max_length)
 
 latent_batch_gen = get_latent_vectors_generator(BATCH_SIZE, noise_depth)
 
 # In[6]:
-
+std_noise_gen = get_exponential_generator(max_std_noise, min_std_noise, eta=0.00002)
 # Define operations
 while 1:
+    std_noise = next(std_noise_gen)
     for _ in range(critic_its):
-        tweet_batch = next(tweet_batch_gen)
+        batch = next(batch_gen)
         z = next(latent_batch_gen)
-        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: tweet_batch, gan.ph.z: z})
+        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.std_dev_codes: (std_noise,)})
 
-    tweet_batch = next(tweet_batch_gen)
+    batch = next(batch_gen)
     z = next(latent_batch_gen)
 
-    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: tweet_batch, gan.ph.z: z})
+    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.std_dev_codes: (std_noise,)})
 
     if (it % test_period) == 0:  # Reporting...
         generation=[]
         for bt in range(batches_test):
-            tweet_batch = next(tweet_batch_gen)
+            batch = next(batch_gen)
             z = next(latent_batch_gen)
             s, generation_code = sess.run([gan.summ.scalar_final_performance, gan.core_model.G],
-                                          feed_dict={gan.ph.codes_in: tweet_batch,
-                                                     gan.ph.z: z})
+                                          feed_dict={gan.ph.codes_in: batch,
+                                                     gan.ph.z: z,
+                                          gan.ph.std_dev_codes: (std_noise,)})
 
             generation.extend(list(map(
                 lambda x: "".join(list(map(lambda c: char_dict_inverse.get(c, "<ERROR>"),
