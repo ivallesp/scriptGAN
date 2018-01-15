@@ -1,3 +1,4 @@
 import tensorflow as tf
 
-leaky_relu = lambda x: tf.maximum(x, 0.1 * x)
+def leaky_relu(x, name=None, alpha=0.1):
+    return tf.maximum(x, alpha * x, name=name)
