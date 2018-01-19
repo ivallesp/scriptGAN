@@ -24,7 +24,7 @@ charset_cardinality = len(char_dict_inverse)
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V2"
+version_id = "VDev"
 logs_path = get_tensorboard_logs_path()
 BATCH_SIZE = 32
 critic_its = 10
@@ -32,7 +32,7 @@ noise_depth = 100
 batches_test = 10
 test_period = 100
 save_period = 5000
-restore = True
+restore = False
 max_length = np.max(list(map(len, sentences)))
 
 it = 0
