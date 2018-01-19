@@ -47,30 +47,36 @@ def build_discriminator(input_, reuse=False):
 
 def build_generator(z, max_length, batch_size, vocabulary_size):
     with tf.variable_scope("Generator", reuse=False):
+        depth = 100
         bn_z = BatchNorm(name="batch_normalization_z")
-        bn_zh = BatchNorm(name="batch_normalization_zh")
-        bn_zc = BatchNorm(name="batch_normalization_zc")
-        bn_d_1 = BatchNorm(name="batch_normalization_d_1")
-        bn_d_2 = BatchNorm(name="batch_normalization_d_2")
-        bn_d_3 = BatchNorm(name="batch_normalization_d_3")
+        bn_z_proj = BatchNorm(name="batch_normalization_z_proj")
+        bn_h_1 = BatchNorm(name="batch_normalization_h_1")
+        bn_h_2 = BatchNorm(name="batch_normalization_h_2")
+        bn_h_3 = BatchNorm(name="batch_normalization_h_3")
+        bn_h_4 = BatchNorm(name="batch_normalization_h_4")
 
-        z_norm = bn_z(z)
-        zh_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
-        zc_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
+        # Final = (BS, length, size)
+        z_projected = tf.layers.dense(inputs = bn_z(z),
+                                      units=max_length * vocabulary_size * depth,
+                                      activation=leaky_relu,
+                                      kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                      name="dense_z_projection")
 
-        output_dec, states_dec = build_lstm_feed_back_layer(bn_zh(zh_projected), bn_zc(zc_projected),
-                                                            max_length=max_length, name="gen_feed_back")
+        z_reshaped = tf.reshape(tensor=z_projected, shape=[batch_size, max_length, vocabulary_size*depth])
 
-        lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
-        d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
-        d = tf.layers.dense(bn_d_2(d), 256, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
-        d = tf.layers.dense(bn_d_3(d), vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_3")
-
-        unstacked_output = tf.reshape(d, shape=[batch_size, max_length, vocabulary_size], name="g_unstack_LSTM")
-        o=tf.nn.softmax(unstacked_output)
+        h = tf.layers.conv1d(inputs=bn_z_proj(z_reshaped), filters=256, kernel_size=9, strides=1, padding="same",
+                             activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1")
+        h = tf.layers.conv1d(inputs=bn_h_1(h), filters=256, kernel_size=9, strides=1, padding="same",
+                             activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_2")
+        h = tf.layers.conv1d(inputs=bn_h_2(h), filters=256, kernel_size=9, strides=1, padding="same",
+                             activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_3")
+        h = tf.layers.conv1d(inputs=bn_h_3(h), filters=256, kernel_size=9, strides=1, padding="same",
+                             activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4")
+        h = tf.layers.conv1d(inputs=bn_h_4(h), filters=vocabulary_size, kernel_size=9, strides=1, padding="same",
+                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_5")
+        o = tf.nn.softmax(h)
+        print(o.shape)
     return(o)
-
-
 
 
 class NameSpacer:
