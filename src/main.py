@@ -54,11 +54,12 @@ if restore:
     last_checkpoint = tf.train.latest_checkpoint(get_model_path(project_id, version_id))
     saver_restore.restore(sess, last_checkpoint)
     print("Model {} restored successfully, continuing from iteration {}".format(last_checkpoint, it))
-    saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id), "model"))
 else:
     sw = get_summary_writer(sess, logs_path, project_id, version_id, remove_if_exists=True)
     it = 0
     sess.run(tf.global_variables_initializer())
+
+saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id), "model"))
 ####
 
 
