@@ -47,7 +47,7 @@ def build_discriminator(input_, reuse=False):
 
 def build_generator(z, max_length, batch_size, vocabulary_size):
     with tf.variable_scope("Generator", reuse=False):
-        depth = 100
+        depth = 1
         bn_z = BatchNorm(name="batch_normalization_z")
         bn_z_proj = BatchNorm(name="batch_normalization_z_proj")
         bn_h_1 = BatchNorm(name="batch_normalization_h_1")
@@ -62,7 +62,7 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
                                       kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                       name="dense_z_projection")
 
-        z_reshaped = tf.reshape(tensor=z_projected, shape=[batch_size, max_length, vocabulary_size*depth])
+        z_reshaped = tf.reshape(tensor=z_projected, shape=[batch_size, max_length, vocabulary_size])
 
         h = tf.layers.conv1d(inputs=bn_z_proj(z_reshaped), filters=256, kernel_size=9, strides=1, padding="same",
                              activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1")
