@@ -1,14 +1,14 @@
 # coding: utf-8
-
 import numpy as np
 import tensorflow as tf
 import codecs
 
-from src.architecture_embedding import GAN
+from src.architecture import GAN
 from src.common_paths import *
 from src.data_tools import load_preprocessed_data, get_batcher, get_latent_vectors_generator
 from src.tensorflow_utilities import start_tensorflow_session, get_summary_writer, TensorFlowSaver
 from src.text_tools import *
+
 # Load configuration
 config = json.load(open("settings.json"))
 
@@ -21,6 +21,13 @@ special_codes = {
 }
 sentences, char_dict, char_dict_inverse = load_preprocessed_data(data_key="TATOEBA", special_codes=special_codes)
 charset_cardinality = len(char_dict_inverse)
+te_1 = TokenEvaluator(n_grams=1)
+te_2 = TokenEvaluator(n_grams=2)
+te_3 = TokenEvaluator(n_grams=3)
+te_1.fit(list_of_real_sentences=sentences)
+te_2.fit(list_of_real_sentences=sentences)
+te_3.fit(list_of_real_sentences=sentences)
+
 
 # Define parameters
 project_id = "GAN_TATOEBA"
@@ -35,18 +42,10 @@ save_period = 5000
 restore = False
 max_length = np.max(list(map(len, sentences)))
 
-it = 0
-
-te_1 = TokenEvaluator(n_grams=1)
-te_2 = TokenEvaluator(n_grams=2)
-te_3 = TokenEvaluator(n_grams=3)
-te_1.fit(list_of_real_sentences=sentences)
-te_2.fit(list_of_real_sentences=sentences)
-te_3.fit(list_of_real_sentences=sentences)
-
-
+# Initialize architecture
 gan = GAN(batch_size=BATCH_SIZE, noise_depth=noise_depth, max_length=max_length, vocabulary_size=charset_cardinality)
 
+# Restore weights if specified and initialize a saver
 sess = start_tensorflow_session(device=str(config["device"]), memory_fraction=config["memory_fraction"])
 if restore:
     sw = get_summary_writer(sess, logs_path, project_id, version_id, remove_if_exists=False)
@@ -65,7 +64,7 @@ saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id)
 
 
 # Define generators
-tweet_batch_gen = get_batcher(sentences, char_dict, batch_size=BATCH_SIZE,
+codes_batch_gen = get_batcher(sentences, char_dict, batch_size=BATCH_SIZE,
                               start_code=special_codes["<START>"],
                               unknown_code=special_codes["<UNK>"],
                               end_code=special_codes["<END>"],
@@ -77,22 +76,22 @@ latent_batch_gen = get_latent_vectors_generator(BATCH_SIZE, noise_depth)
 # Define operations
 while 1:
     for _ in range(critic_its):
-        tweet_batch = next(tweet_batch_gen)
+        batch = next(codes_batch_gen)
         z = next(latent_batch_gen)
-        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: tweet_batch, gan.ph.z: z})
+        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
 
-    tweet_batch = next(tweet_batch_gen)
+    batch = next(codes_batch_gen)
     z = next(latent_batch_gen)
 
-    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: tweet_batch, gan.ph.z: z})
+    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
 
     if (it % test_period) == 0:  # Reporting...
         generation=[]
         for bt in range(batches_test):
-            tweet_batch = next(tweet_batch_gen)
+            batch = next(codes_batch_gen)
             z = next(latent_batch_gen)
             s, generation_code = sess.run([gan.summ.scalar_final_performance, gan.core_model.G],
-                                          feed_dict={gan.ph.codes_in: tweet_batch,
+                                          feed_dict={gan.ph.codes_in: batch,
                                                      gan.ph.z: z})
 
             generation.extend(list(map(
