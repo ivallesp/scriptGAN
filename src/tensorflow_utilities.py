@@ -31,7 +31,7 @@ def start_tensorflow_session(device="0", memory_fraction=1):
     return tf.Session(config=get_tensorflow_configuration(device=device, memory_fraction=memory_fraction))
 
 
-def get_summary_writer(session, logs_path, project_id, version_id):
+def get_summary_writer(session, logs_path, project_id, version_id, remove_if_exists):
     """
     For Tensorboard reporting
     :param session: opened tensorflow session (tf.Session)
@@ -41,7 +41,7 @@ def get_summary_writer(session, logs_path, project_id, version_id):
     :return summary_writer: the tensorboard writer
     """
     path = os.path.join(logs_path,"{}_{}".format(project_id, version_id))
-    if os.path.exists(path):
+    if os.path.exists(path) and remove_if_exists:
         shutil.rmtree(path)
     summary_writer = tf.summary.FileWriter(path, graph_def=session.graph_def)
     return summary_writer

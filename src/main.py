@@ -24,7 +24,7 @@ charset_cardinality = len(char_dict_inverse)
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V14"
+version_id = "V19"
 logs_path = get_tensorboard_logs_path()
 BATCH_SIZE = 512
 critic_its = 10
@@ -32,6 +32,7 @@ noise_depth = 100
 batches_test = 10
 test_period = 100
 save_period = 5000
+restore = False
 max_length = np.max(list(map(len, sentences)))
 
 it = 0
@@ -47,14 +48,23 @@ te_3.fit(list_of_real_sentences=sentences)
 gan = GAN(batch_size=BATCH_SIZE, noise_depth=noise_depth, max_length=max_length, vocabulary_size=charset_cardinality)
 
 sess = start_tensorflow_session(device=str(config["device"]), memory_fraction=config["memory_fraction"])
-sw = get_summary_writer(sess, logs_path, project_id, version_id)
-saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id), "model"))
-sess.run(tf.global_variables_initializer())
+if restore:
+    sw = get_summary_writer(sess, logs_path, project_id, version_id, remove_if_exists=False)
+    it = int(sorted(os.listdir(get_output_path(project_id, version_id)))[-1][4:-4])
+    saver_restore = tf.train.Saver()
+    last_checkpoint = tf.train.latest_checkpoint(get_model_path(project_id, version_id))
+    saver_restore.restore(sess, last_checkpoint)
+    print("Model {} restored successfully, continuing from iteration {}".format(last_checkpoint, it))
+else:
+    sw = get_summary_writer(sess, logs_path, project_id, version_id, remove_if_exists=True)
+    it = 0
+    sess.run(tf.global_variables_initializer())
 
-# In[9]:
+saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id), "model"))
+####
+
 
 # Define generators
-
 tweet_batch_gen = get_batcher(sentences, char_dict, batch_size=BATCH_SIZE,
                               start_code=special_codes["<START>"],
                               unknown_code=special_codes["<UNK>"],
@@ -63,7 +73,6 @@ tweet_batch_gen = get_batcher(sentences, char_dict, batch_size=BATCH_SIZE,
 
 latent_batch_gen = get_latent_vectors_generator(BATCH_SIZE, noise_depth)
 
-# In[6]:
 
 # Define operations
 while 1:
