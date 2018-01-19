@@ -55,11 +55,9 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
         bn_d_3 = BatchNorm(name="batch_normalization_d_3")
 
         z_norm = bn_z(z)
-        zh_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
-        zc_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
+        thought_vector = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_z_projection")
 
-        output_dec, states_dec = build_lstm_feed_back_layer(bn_zh(zh_projected), bn_zc(zc_projected),
-                                                            max_length=max_length, name="gen_feed_back")
+        output_dec, states_dec = build_lstm_feed_back_layer(z, max_length=max_length, name="gen_feed_back")
 
         lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
         d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")

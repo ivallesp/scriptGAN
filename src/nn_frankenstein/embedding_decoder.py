@@ -45,14 +45,12 @@ def decoder(inputs, thought_states, cell, max_ouput_sequence_length, name="decod
         return (emit_ta, final_state)
 
 
-def build_lstm_feed_back_layer(zh, zc, max_length, cardinality_input, name="LSTM_feed_back"):
-    assert zh.shape[1] == zc.shape[1]
+def build_lstm_feed_back_layer(z, max_length, cardinality_input, name="LSTM_feed_back"):
     with tf.variable_scope(name, reuse=False):
-        cell_dec = tf.nn.rnn_cell.LSTMCell(num_units=zc.shape[1].value, )
+        cell_dec = tf.nn.rnn_cell.GRUCell(num_units=z.shape[1].value, )
         cell_dec._output_size = cardinality_input
-        thought_states = tf.nn.rnn_cell.LSTMStateTuple(zc, zh)
-        #go = tf.concat([tf.ones([tf.shape(zh)[0], max_length, cardinality_input])
-        go = tf.one_hot(np.array([[1]]*int(zh.shape[0])), depth=cardinality_input)
+        thought_states = z
+        go = tf.one_hot(np.array([[1]]*int(z.shape[0])), depth=cardinality_input)
         output_dec, states_dec = decoder(go, thought_states=thought_states, cell=cell_dec,
                                          max_ouput_sequence_length=max_length)
         return (output_dec, states_dec)
