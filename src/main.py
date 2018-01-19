@@ -31,14 +31,14 @@ te_3.fit(list_of_real_sentences=sentences)
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "VDev"
+version_id = "V17"
 logs_path = get_tensorboard_logs_path()
 BATCH_SIZE = 32
 critic_its = 10
 noise_depth = 100
 batches_test = 10
 test_period = 100
-save_period = 5000
+save_period = 20000
 restore = False
 max_length = np.max(list(map(len, sentences)))
 

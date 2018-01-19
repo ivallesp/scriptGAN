@@ -1,7 +1,6 @@
 import tensorflow as tf
 
 from src.nn_frankenstein.activations import leaky_relu
-from src.nn_frankenstein.decoder import build_lstm_feed_back_layer
 from src.nn_frankenstein.normalization import BatchNorm
 
 
@@ -48,27 +47,36 @@ def build_discriminator(input_, reuse=False):
 def build_generator(z, max_length, batch_size, vocabulary_size):
     with tf.variable_scope("Generator", reuse=False):
         bn_z = BatchNorm(name="batch_normalization_z")
-        bn_zh = BatchNorm(name="batch_normalization_zh")
-        bn_zc = BatchNorm(name="batch_normalization_zc")
         bn_d_1 = BatchNorm(name="batch_normalization_d_1")
         bn_d_2 = BatchNorm(name="batch_normalization_d_2")
         bn_d_3 = BatchNorm(name="batch_normalization_d_3")
 
         z_norm = bn_z(z)
-        zh_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
-        zc_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
+        n_units = 1024
+        zh_projected = tf.layers.dense(z_norm, n_units, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
+        zc_projected = tf.layers.dense(z_norm, n_units, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
 
-        output_dec, states_dec = build_lstm_feed_back_layer(bn_zh(zh_projected), bn_zc(zc_projected),
-                                                            max_length=max_length, name="gen_feed_back")
+        cell = tf.nn.rnn_cell.LSTMCell(num_units=n_units, use_peepholes=True)
+        thought_states = tf.nn.rnn_cell.LSTMStateTuple(zc_projected, zh_projected)
+        go = tf.ones([batch_size, max_length, vocabulary_size])
+        empty = tf.zeros((batch_size, max_length, vocabulary_size))
+        seq_dummy = tf.concat([go, empty], axis=1)
+        
+        output_seq, states_seq = tf.nn.dynamic_rnn(cell=cell,
+                                                   inputs=seq_dummy,
+                                                   initial_state=thought_states,
+                                                   dtype=tf.float32,
+                                                   scope="gen_rnn")
 
-        lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
+        lstm_stacked_output = tf.reshape(output_seq, shape=[batch_size*max_length, -1], name="g_stack_LSTM")
         d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
         d = tf.layers.dense(bn_d_2(d), 256, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
         d = tf.layers.dense(bn_d_3(d), vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_3")
 
         unstacked_output = tf.reshape(d, shape=[batch_size, max_length, vocabulary_size], name="g_unstack_LSTM")
-        o=tf.nn.softmax(unstacked_output)
-    return(o)
+        o = tf.nn.softmax(unstacked_output)
+    return o
+
 
 
 
@@ -165,4 +173,3 @@ class GAN:
 
         return {"scalar_final_performance": tf.summary.merge(final_performance_scalar),
                 "scalar_test_performance": tf.summary.merge(test_performance_scalar)}
-
