@@ -3,7 +3,7 @@ import tensorflow as tf
 from src.nn_frankenstein.activations import leaky_relu
 from src.nn_frankenstein.decoder import build_lstm_feed_back_layer
 from src.nn_frankenstein.normalization import BatchNorm
-from src.nn_frankenstein.conv1d_blocks import inception_1d
+from src.nn_frankenstein.conv1d_blocks import inception_1d_v2 as inception_1d
 
 def build_discriminator(input_, reuse=False, return_second_to_last=False):
     with tf.variable_scope("Discriminator", reuse=reuse):
@@ -13,21 +13,21 @@ def build_discriminator(input_, reuse=False, return_second_to_last=False):
         x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_1_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_1")
-        x = inception_1d(x, is_train=True, depth=1, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_2_1")
+        x = inception_1d(x, is_train=True, depth=2, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_2_1")
         x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_2_1")
-        x = inception_1d(x, is_train=True, depth=1, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_2_2")
+        x = inception_1d(x, is_train=True, depth=2, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_2_2")
         x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_2_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_2")
-        x = inception_1d(x, is_train=True, depth=1, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_3_1")
+        x = inception_1d(x, is_train=True, depth=3, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_3_1")
         x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_3_1")
-        x = inception_1d(x, is_train=True, depth=1, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_3_2")
+        x = inception_1d(x, is_train=True, depth=3, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_3_2")
         x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_3_2")
         print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_3")
-        x = inception_1d(x, is_train=True, depth=1, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_4_1")
+        x = inception_1d(x, is_train=True, depth=4, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_4_1")
         x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_4_1")
-        x = inception_1d(x, is_train=True, depth=1, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_4_2")
+        x = inception_1d(x, is_train=True, depth=4, norm_function=None, norm_input=False, activ_function=leaky_relu, name="conv_4_2")
         x = tf.nn.dropout(x, keep_prob=0.5, name="dropout_4_2")
         print(x.shape)
         x_second_to_last = x
@@ -60,7 +60,7 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
 
         lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
         d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
-        d = tf.layers.dense(bn_d_2(d), 1024, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
+        d = tf.layers.dense(bn_d_2(d), 256, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
         d = tf.layers.dense(bn_d_3(d), vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_3")
 
         unstacked_output = tf.reshape(d, shape=[batch_size, max_length, vocabulary_size], name="g_unstack_LSTM")
@@ -84,7 +84,7 @@ class GAN:
         self.noise_depth = noise_depth
         self.vocabulary_size = vocabulary_size
         self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
-        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00005)
+        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00015)
         self.define_computation_graph()
 
         # Aliases
