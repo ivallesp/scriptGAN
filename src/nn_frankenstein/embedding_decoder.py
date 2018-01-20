@@ -26,8 +26,7 @@ def decoder(inputs, thought_states, cell, max_ouput_sequence_length, name="decod
                 next_input = input_ta.read(time)
                 next_cell_state = thought_states
             else:
-                cell_output = tf.nn.softmax(
-                    tf.matmul(cell_output, out_map_weight) + out_map_bias)  # Same size of the input
+                cell_output = tf.nn.softmax(10*tf.matmul(cell_output, out_map_weight) + out_map_bias)  # Same size of the input
                 next_input = cell_output
                 next_cell_state = cell_state
                 emit_output = cell_output
