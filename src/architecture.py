@@ -81,9 +81,8 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
         zc = tf.layers.dense(inputs=z, units=vocabulary_size, activation=None,
                                          kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                          name="zc_projection")
-        thought_states = tf.nn.rnn_cell.LSTMStateTuple(zh, zc)
         cell = tf.nn.rnn_cell.LSTMCell(vocabulary_size)
-        h, states = tf.nn.dynamic_rnn(cell, h, dtype=tf.float32, initial_state=thought_states)
+        h, states = tf.nn.dynamic_rnn(cell, h, dtype=tf.float32)
 
         o = tf.nn.softmax(h)
         print(o.shape)
