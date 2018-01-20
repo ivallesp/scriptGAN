@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from src.nn_frankenstein.activations import leaky_relu
-from src.nn_frankenstein.decoder import build_lstm_feed_back_layer
+from src.nn_frankenstein.embedding_decoder import build_lstm_feed_back_layer
 from src.nn_frankenstein.normalization import BatchNorm
 
 
@@ -59,8 +59,9 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
         zc_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
 
         output_dec, states_dec = build_lstm_feed_back_layer(bn_zh(zh_projected), bn_zc(zc_projected),
-                                                            max_length=max_length, name="gen_feed_back")
-
+                                                            max_length=max_length, cardinality_input=vocabulary_size,
+                                                            name="gen_feed_back")
+        print(output_dec.shape)
         lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
         d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
         d = tf.layers.dense(bn_d_2(d), 256, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
@@ -68,6 +69,7 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
 
         unstacked_output = tf.reshape(d, shape=[batch_size, max_length, vocabulary_size], name="g_unstack_LSTM")
         o=tf.nn.softmax(unstacked_output)
+        print(o.shape)
     return(o)
 
 
