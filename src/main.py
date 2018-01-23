@@ -31,7 +31,7 @@ te_3.fit(list_of_real_sentences=sentences)
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V21"
+version_id = "V25"
 logs_path = get_tensorboard_logs_path()
 BATCH_SIZE = 512
 critic_its = 10
