@@ -53,11 +53,9 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
 
         z_norm = bn_z(z)
         n_units = 1024
-        zh_projected = tf.layers.dense(z_norm, n_units, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
-        zc_projected = tf.layers.dense(z_norm, n_units, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
+        thought_states = tf.layers.dense(z_norm, n_units, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
 
-        cell = tf.nn.rnn_cell.LSTMCell(num_units=n_units, use_peepholes=True)
-        thought_states = tf.nn.rnn_cell.LSTMStateTuple(zc_projected, zh_projected)
+        cell = tf.nn.rnn_cell.GRUCell(num_units=n_units)
         go = tf.ones([batch_size, max_length, vocabulary_size])
         empty = tf.zeros((batch_size, max_length, vocabulary_size))
         seq_dummy = tf.concat([go, empty], axis=1)
