@@ -13,3 +13,9 @@ def batching(list_of_iterables, n=1, infinite=False, return_incomplete_batches=F
 
         if not infinite:
             break
+
+def exponential_decay_generator(start, finish, decay=0.999):
+    x=start
+    while 1:
+        x = x*decay + finish*(1-decay)
+        yield x
