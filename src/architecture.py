@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from src.nn_frankenstein.activations import leaky_relu, gumbel_softmax
-from src.nn_frankenstein.decoder_gumbel import build_lstm_feed_back_layer
+from src.nn_frankenstein.decoder_gumbel_test import build_lstm_feed_back_layer
 from src.nn_frankenstein.normalization import BatchNorm
 
 
