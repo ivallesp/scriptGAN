@@ -13,7 +13,7 @@ from src.text_tools import *
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V26"
+version_id = "V28"
 logs_path = get_tensorboard_logs_path()
 batch_size = 512
 critic_its = 10
