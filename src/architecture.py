@@ -55,7 +55,14 @@ def build_generator(z, max_length, batch_size, vocabulary_size, gumbel_tao):
                                                             max_length=max_length, gumbel_tao=gumbel_tao,
                                                             name="gen_feed_back")
 
-    return output_dec
+        lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
+        d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
+        d = tf.layers.dense(bn_d_2(d), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
+        d = tf.layers.dense(bn_d_3(d), vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_3")
+
+        unstacked_output = tf.reshape(d, shape=[batch_size, max_length, vocabulary_size], name="g_unstack_LSTM")
+        o=tf.nn.softmax(unstacked_output)
+    return(o)
 
 
 
