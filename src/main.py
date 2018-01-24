@@ -23,8 +23,8 @@ test_period = 100
 save_period = 5000
 restore = False
 max_length = 64
-tao_0 = 5
-tao_1 = 1
+tao_0 = 5.0
+tao_1 = 1.0
 tao_decay = 1-0.0001
 
 
