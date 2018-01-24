@@ -6,14 +6,6 @@ import tensorflow as tf
 
 
 class ArchitectureTester(unittest.TestCase):
-    def test_output_shapes(self):
-        for name, architecture in __architectures__.items():
-            arch = architecture()
-            self.assertEqual(arch.core_model.D_fake.shape.as_list(),
-                             arch.core_model.D_real.shape.as_list()) # Real and false same size
-            self.assertEqual(list(filter(lambda x:x>1, arch.core_model.D_fake.shape.as_list())),
-                             [arch.batch_size]) # Same number of elements
-
 
     def test_architectures_gradient_checks(self):  # Specific GAM
         for name, architecture in __architectures__.items():
@@ -42,3 +34,11 @@ class ArchitectureTester(unittest.TestCase):
             sess.run(arch.optimizers.D, feed_dict=feed_dict)
             current_losses = np.squeeze(sess.run(arch.losses.loss_d, feed_dict=feed_dict))
             self.assertTrue(all(previous_losses > current_losses), "Discriminator op.didn't pass gradient check!")
+
+
+tf.reset_default_graph()
+tao = tf.get_variable("tao", initializer=1.0)
+sess=tf.Session()
+sess.run(tf.global_variables_initializer())
+sess.run(tao)
+sess.run(tf.assign(tao, 2.0))

@@ -16,12 +16,13 @@ def decoder(inputs, thought_states, cell, max_ouput_sequence_length, gumbel_tao,
     """
     with tf.variable_scope(name, reuse=False):
         def loop_fn(time, cell_output, cell_state, loop_state):
-            emit_output = cell_output
-            if cell_output is None:
+            if cell_output is None: # Only first time
+                emit_output = cell_output
                 next_input = input_ta.read(time)
                 next_cell_state = thought_states
             else:
-                next_input = gumbel_softmax(cell_output, temperature=0.3)  # No Softmax
+                emit_output = gumbel_softmax(cell_output, temperature=gumbel_tao)  # No Softmax
+                next_input = emit_output
                 next_cell_state = cell_state
             next_loop_state = None
             finished = (time >= max_ouput_sequence_length)

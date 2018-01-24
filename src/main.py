@@ -71,16 +71,15 @@ tao_gen = exponential_decay_generator(1, 0.1, 1-1/25000)
 
 # Define operations
 while 1:
-    tao = next(tao_gen)
     for _ in range(critic_its):
         batch, _ = next(codes_batch_gen)
         z = next(latent_batch_gen)
-        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.gumbel_tao: tao})
+        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
 
     batch, _ = next(codes_batch_gen)
     z = next(latent_batch_gen)
 
-    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.gumbel_tao: tao})
+    _, tao = sess.run([gan.op.G, gan.op.shrink_tao], feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
 
     if (it % test_period) == 0:  # Reporting...
         generation=[]
@@ -89,7 +88,7 @@ while 1:
             z = next(latent_batch_gen)
             s, generation_code = sess.run([gan.summ.scalar_final_performance, gan.core_model.G],
                                           feed_dict={gan.ph.codes_in: batch,
-                                                     gan.ph.z: z, gan.ph.gumbel_tao: tao})
+                                                     gan.ph.z: z})
 
             generation.extend(list(map(
                 lambda x: "".join(list(map(lambda c: char_dict_inverse.get(c, "<ERROR>"),
@@ -105,9 +104,9 @@ while 1:
         acc_2g = te_2.evaluate(generation_clean)
         acc_3g = te_3.evaluate(generation_clean)
 
-        print("{1}\n=== Iteration {0} | 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} | 3-gram acc: {4:.5f} ===\n".format(it,
+        print("{1}\n=== Iteration {0} | tao: {5} | 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} | 3-gram acc: {4:.5f} ===\n".format(it,
                                                                      "\n".join(generation[0:20]),
-                                                                     np.mean(acc_1g), np.mean(acc_2g), np.mean(acc_3g)))
+                                                                     np.mean(acc_1g), np.mean(acc_2g), np.mean(acc_3g), tao))
         st = sess.run(gan.summ.scalar_test_performance, feed_dict={gan.ph.acc_1g: np.mean(acc_1g),
                                                                    gan.ph.acc_2g: np.mean(acc_2g),
                                                                    gan.ph.acc_3g: np.mean(acc_3g)})

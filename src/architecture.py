@@ -52,7 +52,8 @@ def build_generator(z, max_length, batch_size, vocabulary_size, gumbel_tao):
         zc_projected = tf.layers.dense(z_norm, vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
 
         output_dec, states_dec = build_lstm_feed_back_layer(bn_zh(zh_projected), bn_zc(zc_projected),
-                                                            max_length=max_length, gumbel_tao=gumbel_tao, name="gen_feed_back")
+                                                            max_length=max_length, gumbel_tao=gumbel_tao,
+                                                            name="gen_feed_back")
 
     return output_dec
 
@@ -65,13 +66,18 @@ class NameSpacer:
 
 
 class GAN:
-    def __init__(self, batch_size=512, noise_depth=100, max_length=64, code_size=100, name="GAN"):
+    def __init__(self, batch_size=512, noise_depth=100, max_length=64, code_size=100,
+                 tao_0=1.0, tao_1=.1, tao_decay=0.99995, name="GAN"):
         self.name = name
         self.n_neurons_rnn_gen = 1024
         self.batch_size = batch_size
         self.max_length = max_length
         self.noise_depth = noise_depth
         self.vocabulary_size = code_size
+        self.tao_initial_value = tao_0
+        self.tao_final_value = tao_1
+        self.tao_decay = tao_decay
+
         self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
         self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00015)
         self.define_computation_graph()
@@ -97,18 +103,18 @@ class GAN:
             acc_1g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_1g")
             acc_2g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_2g")
             acc_3g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_3g")
-            gumbel_tao = tf.placeholder(dtype=tf.float32, shape=None, name="gumbel_tao")
-        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g,
-                "gumbel_tao": gumbel_tao}
+        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g}
 
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
+            super(GAN, self).__init__()
+            self.tao = tf.get_variable("tao", initializer=self.tao_initial_value, trainable=False)
             tweet = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
             G = build_generator(z=self.placeholders.z,
                                 max_length=self.max_length,
                                 batch_size=self.batch_size,
                                 vocabulary_size=self.vocabulary_size,
-                                gumbel_tao = self.placeholders.gumbel_tao)
+                                gumbel_tao = self.tao)
             D_real = build_discriminator(input_=tweet)
             D_fake = build_discriminator(input_=G, reuse=True)
             epsilon = tf.random_uniform(shape=tweet[:, :, 0:1].shape, minval=0., maxval=1.)
@@ -132,10 +138,12 @@ class GAN:
     def define_optimizers(self):
         self.g_vars = list(filter(lambda k: "Generator" in k.name, tf.trainable_variables()))
         self.d_vars = list(filter(lambda k: "Discriminator" in k.name, tf.trainable_variables()))
+        shrink_tao = tf.assign(self.tao, self.tao * self.tao_decay + (1 - self.tao_decay) * self.tao_final_value)
+
         with tf.variable_scope("Optimizers"):
             g_op = self.optimizer_generator.minimize(self.losses.loss_g, var_list=self.g_vars)
             d_op = self.optimizer_discriminator.minimize(self.losses.loss_d, var_list=self.d_vars)
-        return {"G": g_op, "D": d_op}
+        return {"G": g_op, "D": d_op, "shrink_tao": shrink_tao}
 
     def define_summaries(self):
         with tf.variable_scope("Summaries"):
