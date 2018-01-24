@@ -13,9 +13,9 @@ from src.text_tools import *
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "VDev"
+version_id = "V26"
 logs_path = get_tensorboard_logs_path()
-batch_size = 32
+batch_size = 512
 critic_its = 10
 noise_depth = 100
 batches_test = 10
@@ -67,19 +67,20 @@ saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id)
 
 # Define generators
 latent_batch_gen = get_latent_vectors_generator(batch_size, noise_depth)
-
+tao_gen = exponential_decay_generator(1, 0.1, 1-1/25000)
 
 # Define operations
 while 1:
+    tao = next(tao_gen)
     for _ in range(critic_its):
         batch = next(codes_batch_gen)
         z = next(latent_batch_gen)
-        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
+        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.gumbel_tao: tao})
 
     batch, _ = next(codes_batch_gen)
     z = next(latent_batch_gen)
 
-    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
+    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.gumbel_tao: tao})
 
     if (it % test_period) == 0:  # Reporting...
         generation=[]
@@ -88,7 +89,7 @@ while 1:
             z = next(latent_batch_gen)
             s, generation_code = sess.run([gan.summ.scalar_final_performance, gan.core_model.G],
                                           feed_dict={gan.ph.codes_in: batch,
-                                                     gan.ph.z: z})
+                                                     gan.ph.z: z, gan.ph.gumbel_tao: tao})
 
             generation.extend(list(map(
                 lambda x: "".join(list(map(lambda c: char_dict_inverse.get(c, "<ERROR>"),

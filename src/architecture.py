@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-from src.nn_frankenstein.activations import leaky_relu
-from src.nn_frankenstein.decoder import build_lstm_feed_back_layer
+from src.nn_frankenstein.activations import leaky_relu, gumbel_softmax
+from src.nn_frankenstein.decoder_gumbel import build_lstm_feed_back_layer
 from src.nn_frankenstein.normalization import BatchNorm
 
 
@@ -13,7 +13,6 @@ def build_discriminator(input_, reuse=False):
 
         x = tf.layers.conv1d(x, filters=64, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1_2")
-        print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_1")
 
         x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
@@ -21,7 +20,6 @@ def build_discriminator(input_, reuse=False):
 
         x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_2_2")
-        print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_2")
 
         x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
@@ -29,7 +27,6 @@ def build_discriminator(input_, reuse=False):
 
         x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_3_2")
-        print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_3")
 
         x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
@@ -37,39 +34,27 @@ def build_discriminator(input_, reuse=False):
 
         x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4_2")
-        print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=8, strides=2, name="pooling_4")
 
         x = tf.layers.conv1d(x, filters=1, kernel_size=1, strides=1, activation=None,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_5_final")
-        print(x.shape)
     return x
 
 
-def build_generator(z, max_length, batch_size, vocabulary_size):
+def build_generator(z, max_length, batch_size, vocabulary_size, gumbel_tao):
     with tf.variable_scope("Generator", reuse=False):
         bn_z = BatchNorm(name="batch_normalization_z")
         bn_zh = BatchNorm(name="batch_normalization_zh")
         bn_zc = BatchNorm(name="batch_normalization_zc")
-        bn_d_1 = BatchNorm(name="batch_normalization_d_1")
-        bn_d_2 = BatchNorm(name="batch_normalization_d_2")
-        bn_d_3 = BatchNorm(name="batch_normalization_d_3")
 
         z_norm = bn_z(z)
-        zh_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
-        zc_projected = tf.layers.dense(z_norm, 1024, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
+        zh_projected = tf.layers.dense(z_norm, vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zh_projection")
+        zc_projected = tf.layers.dense(z_norm, vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_zc_projection")
 
         output_dec, states_dec = build_lstm_feed_back_layer(bn_zh(zh_projected), bn_zc(zc_projected),
-                                                            max_length=max_length, name="gen_feed_back")
+                                                            max_length=max_length, gumbel_tao=gumbel_tao, name="gen_feed_back")
 
-        lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
-        d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
-        d = tf.layers.dense(bn_d_2(d), 256, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
-        d = tf.layers.dense(bn_d_3(d), vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_3")
-
-        unstacked_output = tf.reshape(d, shape=[batch_size, max_length, vocabulary_size], name="g_unstack_LSTM")
-        o=tf.nn.softmax(unstacked_output)
-    return(o)
+    return output_dec
 
 
 
@@ -112,7 +97,9 @@ class GAN:
             acc_1g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_1g")
             acc_2g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_2g")
             acc_3g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_3g")
-        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g}
+            gumbel_tao = tf.placeholder(dtype=tf.float32, shape=None, name="gumbel_tao")
+        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g,
+                "gumbel_tao": gumbel_tao}
 
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
@@ -120,7 +107,8 @@ class GAN:
             G = build_generator(z=self.placeholders.z,
                                 max_length=self.max_length,
                                 batch_size=self.batch_size,
-                                vocabulary_size=self.vocabulary_size)
+                                vocabulary_size=self.vocabulary_size,
+                                gumbel_tao = self.placeholders.gumbel_tao)
             D_real = build_discriminator(input_=tweet)
             D_fake = build_discriminator(input_=G, reuse=True)
             epsilon = tf.random_uniform(shape=tweet[:, :, 0:1].shape, minval=0., maxval=1.)
