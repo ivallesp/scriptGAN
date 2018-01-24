@@ -5,6 +5,7 @@ from src.nn_frankenstein.decoder import build_lstm_feed_back_layer
 from src.nn_frankenstein.normalization import BatchNorm
 
 
+
 def build_discriminator(input_, reuse=False):
     with tf.variable_scope("Discriminator", reuse=reuse):
         x = tf.layers.conv1d(input_, filters=64, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
@@ -79,13 +80,13 @@ class NameSpacer:
 
 
 class GAN:
-    def __init__(self, batch_size, noise_depth, max_length, vocabulary_size, name="GAN"):
+    def __init__(self, batch_size=512, noise_depth=100, max_length=64, code_size=100, name="GAN"):
         self.name = name
         self.n_neurons_rnn_gen = 1024
         self.batch_size = batch_size
         self.max_length = max_length
         self.noise_depth = noise_depth
-        self.vocabulary_size = vocabulary_size
+        self.vocabulary_size = code_size
         self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
         self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00015)
         self.define_computation_graph()
@@ -166,3 +167,5 @@ class GAN:
         return {"scalar_final_performance": tf.summary.merge(final_performance_scalar),
                 "scalar_test_performance": tf.summary.merge(test_performance_scalar)}
 
+
+__architectures__ = {"GAN": GAN}

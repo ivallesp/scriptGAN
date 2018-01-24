@@ -1,26 +1,42 @@
 # coding: utf-8
-import numpy as np
-import tensorflow as tf
 import codecs
+
+import tensorflow as tf
 
 from src.architecture import GAN
 from src.common_paths import *
-from src.data_tools import load_preprocessed_data, get_batcher, get_latent_vectors_generator
+from src.data_tools import get_latent_vectors_generator, get_sentences
+from src.general_utilities import *
 from src.tensorflow_utilities import start_tensorflow_session, get_summary_writer, TensorFlowSaver
 from src.text_tools import *
+
+
+# Define parameters
+project_id = "GAN_TATOEBA"
+version_id = "VDev"
+logs_path = get_tensorboard_logs_path()
+batch_size = 32
+critic_its = 10
+noise_depth = 100
+batches_test = 10
+test_period = 100
+save_period = 5000
+restore = False
+max_length = 64
+
 
 # Load configuration
 config = json.load(open("settings.json"))
 
-# Load data and add tags to dictionary
-special_codes = {
-    "<UNK>": 0,
-    "<GO>": 1,
-    "<START>": 2,
-    "<END>": 3
-}
-sentences, char_dict, char_dict_inverse = load_preprocessed_data(data_key="TATOEBA", special_codes=special_codes)
+# Load data
+sentences, sentences_encoded, char_dict, char_dict_inverse = get_sentences("TATOEBA", max_length=max_length)
+codes_batch_gen = batching(list_of_iterables=[sentences_encoded, sentences],
+                           n=batch_size,
+                           infinite=True,
+                           return_incomplete_batches=False)
+
 charset_cardinality = len(char_dict_inverse)
+
 te_1 = TokenEvaluator(n_grams=1)
 te_2 = TokenEvaluator(n_grams=2)
 te_3 = TokenEvaluator(n_grams=3)
@@ -28,22 +44,8 @@ te_1.fit(list_of_real_sentences=sentences)
 te_2.fit(list_of_real_sentences=sentences)
 te_3.fit(list_of_real_sentences=sentences)
 
-
-# Define parameters
-project_id = "GAN_TATOEBA"
-version_id = "VDev"
-logs_path = get_tensorboard_logs_path()
-BATCH_SIZE = 32
-critic_its = 10
-noise_depth = 100
-batches_test = 10
-test_period = 100
-save_period = 5000
-restore = False
-max_length = np.max(list(map(len, sentences)))
-
 # Initialize architecture
-gan = GAN(batch_size=BATCH_SIZE, noise_depth=noise_depth, max_length=max_length, vocabulary_size=charset_cardinality)
+gan = GAN(batch_size=batch_size, noise_depth=noise_depth, max_length=max_length, code_size=charset_cardinality)
 
 # Restore weights if specified and initialize a saver
 sess = start_tensorflow_session(device=str(config["device"]), memory_fraction=config["memory_fraction"])
@@ -64,13 +66,7 @@ saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id)
 
 
 # Define generators
-codes_batch_gen = get_batcher(sentences, char_dict, batch_size=BATCH_SIZE,
-                              start_code=special_codes["<START>"],
-                              unknown_code=special_codes["<UNK>"],
-                              end_code=special_codes["<END>"],
-                              max_length=max_length)
-
-latent_batch_gen = get_latent_vectors_generator(BATCH_SIZE, noise_depth)
+latent_batch_gen = get_latent_vectors_generator(batch_size, noise_depth)
 
 
 # Define operations
@@ -80,7 +76,7 @@ while 1:
         z = next(latent_batch_gen)
         sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
 
-    batch = next(codes_batch_gen)
+    batch, _ = next(codes_batch_gen)
     z = next(latent_batch_gen)
 
     sess.run(gan.op.G, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
@@ -88,7 +84,7 @@ while 1:
     if (it % test_period) == 0:  # Reporting...
         generation=[]
         for bt in range(batches_test):
-            batch = next(codes_batch_gen)
+            batch, _ = next(codes_batch_gen)
             z = next(latent_batch_gen)
             s, generation_code = sess.run([gan.summ.scalar_final_performance, gan.core_model.G],
                                           feed_dict={gan.ph.codes_in: batch,

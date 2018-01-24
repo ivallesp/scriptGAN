@@ -13,12 +13,12 @@ def load_imdb_data():
     return movie_titles
 
 
-def load_tatoeba_data():
+def load_tatoeba_data(max_length):
     df = pd.read_csv(os.path.join(get_data_path(), "tatoeba.tsv"), sep="\t", header=None)
     df = df[df[1] == "eng"]
     df.columns = ["sentence_id", "language", "text"]
     df["length"] = df["text"].map(len)
-    df = df[(df.length<=64)]
+    df = df[(df.length<=(max_length-2))]
     char_fdist = Counter("".join(df.text.tolist()))
     characters_allowed = list(map(lambda x: x[0], char_fdist.most_common(100)))
     characters_not_allowed = np.setdiff1d(list(dict(char_fdist).keys()), characters_allowed)
