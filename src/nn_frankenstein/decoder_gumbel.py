@@ -39,8 +39,16 @@ def decoder(inputs, thought_states, cell, max_ouput_sequence_length, gumbel_tao,
 def build_lstm_feed_back_layer(zh, zc, max_length, gumbel_tao, name="LSTM_feed_back"):
     assert zh.shape[1] == zc.shape[1]
     with tf.variable_scope(name, reuse=False):
-        cell_dec = tf.nn.rnn_cell.LSTMCell(num_units=zc.shape[1].value, use_peepholes=True)
-        thought_states = tf.nn.rnn_cell.LSTMStateTuple(zc, zh)
+        dec_cells = []
+        thought_states = []
+        for i in range(5):
+            with tf.variable_scope('dec_RNN_{}'.format(i)):
+                cell = tf.contrib.rnn.LSTMCell(num_units=zc.shape[1].value, use_peepholes=True)
+                dec_cells.append(cell)
+                cell_dec = tf.contrib.rnn.MultiRNNCell(dec_cells)
+                thought_states.append(tf.nn.rnn_cell.LSTMStateTuple(zc, zh))
+
+        thought_states = tuple(thought_states)
         go = tf.ones([tf.shape(zh)[0], max_length, zh.shape[1].value])
         output_dec, states_dec = decoder(go, thought_states=thought_states, cell=cell_dec,
                                          max_ouput_sequence_length=max_length, gumbel_tao=gumbel_tao)
