@@ -79,7 +79,7 @@ class GAN:
         self.tao_decay = tao_decay
 
         self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00005)
-        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00005)
+        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00015)
         self.define_computation_graph()
 
         # Aliases
