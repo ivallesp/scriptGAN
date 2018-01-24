@@ -23,6 +23,9 @@ test_period = 100
 save_period = 5000
 restore = False
 max_length = 64
+tao_0 = 5
+tao_1 = 1
+tao_decay = 1-0.0001
 
 
 # Load configuration
@@ -45,7 +48,8 @@ te_2.fit(list_of_real_sentences=sentences)
 te_3.fit(list_of_real_sentences=sentences)
 
 # Initialize architecture
-gan = GAN(batch_size=batch_size, noise_depth=noise_depth, max_length=max_length, code_size=charset_cardinality)
+gan = GAN(batch_size=batch_size, noise_depth=noise_depth, max_length=max_length, code_size=charset_cardinality,
+          tao_0=tao_0, tao_1=tao_1, tao_decay= tao_decay)
 
 # Restore weights if specified and initialize a saver
 sess = start_tensorflow_session(device=str(config["device"]), memory_fraction=config["memory_fraction"])
