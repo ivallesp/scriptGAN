@@ -72,7 +72,7 @@ latent_batch_gen = get_latent_vectors_generator(batch_size, noise_depth)
 # Define operations
 while 1:
     for _ in range(critic_its):
-        batch = next(codes_batch_gen)
+        batch, _ = next(codes_batch_gen)
         z = next(latent_batch_gen)
         sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
 
