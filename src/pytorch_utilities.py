@@ -9,7 +9,7 @@ def use_devices(devices):
     os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(x) for x in devices)
 
 
-def get_summary_writer(logs_path, project_id, version_id):
+def get_summary_writer(logs_path, project_id, version_id, remove_if_exists=True):
     path = os.path.join(logs_path, "{}_{}".format(project_id, version_id))
     if os.path.exists(path) and remove_if_exists:
         shutil.rmtree(path)
