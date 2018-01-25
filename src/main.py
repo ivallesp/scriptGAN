@@ -1,19 +1,26 @@
 # coding: utf-8
 import codecs
 
-import tensorflow as tf
-
 from src.architecture import GAN
 from src.common_paths import *
 from src.data_tools import get_latent_vectors_generator, get_sentences
 from src.general_utilities import *
-from src.tensorflow_utilities import start_tensorflow_session, get_summary_writer, TensorFlowSaver
 from src.text_tools import *
+from src.data_tools import one_hot
+
+import torch
+import torch.optim as optim
+import torch.functional as F
+import torch.nn as nn
+import torch.autograd as autograd
+
+import numpy as np
+from src.pytorch_utilities import use_devices, get_summary_writer
 
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "VDev"
+version_id = "VTorch"
 logs_path = get_tensorboard_logs_path()
 batch_size = 32
 critic_its = 10
@@ -23,17 +30,26 @@ test_period = 100
 save_period = 5000
 restore = False
 max_length = 64
-
+cuda=True
+it=0
 
 # Load configuration
-config = json.load(open("settings.json"))
+use_devices(1)
+
 
 # Load data
 sentences, sentences_encoded, char_dict, char_dict_inverse = get_sentences("TATOEBA", max_length=max_length)
-codes_batch_gen = batching(list_of_iterables=[sentences_encoded, sentences],
+sentences_onehot = one_hot(sentences_encoded, len(char_dict_inverse), pytorch_format=True)
+codes_batch_gen = batching(list_of_iterables=[sentences_onehot, sentences],
                            n=batch_size,
                            infinite=True,
                            return_incomplete_batches=False)
+
+cardinality = len(char_dict_inverse)
+
+# Define generators
+latent_batch_gen = get_latent_vectors_generator(batch_size, noise_depth)
+
 
 charset_cardinality = len(char_dict_inverse)
 
@@ -45,50 +61,31 @@ te_2.fit(list_of_real_sentences=sentences)
 te_3.fit(list_of_real_sentences=sentences)
 
 # Initialize architecture
-gan = GAN(batch_size=batch_size, noise_depth=noise_depth, max_length=max_length, code_size=charset_cardinality)
+gan = GAN(noise_depth=noise_depth, batch_size=batch_size, n_outputs=cardinality, max_length=max_length)
 
-# Restore weights if specified and initialize a saver
-sess = start_tensorflow_session(device=str(config["device"]), memory_fraction=config["memory_fraction"])
-if restore:
-    sw = get_summary_writer(sess, logs_path, project_id, version_id, remove_if_exists=False)
-    it = int(sorted(os.listdir(get_output_path(project_id, version_id)))[-1][4:-4])
-    saver_restore = tf.train.Saver()
-    last_checkpoint = tf.train.latest_checkpoint(get_model_path(project_id, version_id))
-    saver_restore.restore(sess, last_checkpoint)
-    print("Model {} restored successfully, continuing from iteration {}".format(last_checkpoint, it))
-else:
-    sw = get_summary_writer(sess, logs_path, project_id, version_id, remove_if_exists=True)
-    it = 0
-    sess.run(tf.global_variables_initializer())
-
-saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id), "model"))
-####
-
-
-# Define generators
-latent_batch_gen = get_latent_vectors_generator(batch_size, noise_depth)
-
+sw = get_summary_writer(logs_path=logs_path, project_id=project_id, version_id=version_id, remove_if_exists=True)
 
 # Define operations
+dtype=torch.cuda.FloatTensor if cuda else torch.FloatTensor
 while 1:
     for _ in range(critic_its):
-        batch, _ = next(codes_batch_gen)
-        z = next(latent_batch_gen)
-        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
+        real_data = autograd.Variable(torch.from_numpy(next(codes_batch_gen)[0])).type(dtype)
+        z = autograd.Variable(torch.from_numpy(next(latent_batch_gen))).type(dtype)
+        cost_d = gan.op.D(real_data, z)
 
-    batch, _ = next(codes_batch_gen)
-    z = next(latent_batch_gen)
+    z = autograd.Variable(torch.from_numpy(next(latent_batch_gen))).type(dtype)
 
-    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
+    cost_g = gan.op.G(z)
 
-    if (it % test_period) == 0:  # Reporting...
+    if (it % test_period) == 0:
         generation=[]
+        d_loss = g_loss = 0
         for bt in range(batches_test):
-            batch, _ = next(codes_batch_gen)
-            z = next(latent_batch_gen)
-            s, generation_code = sess.run([gan.summ.scalar_final_performance, gan.core_model.G],
-                                          feed_dict={gan.ph.codes_in: batch,
-                                                     gan.ph.z: z})
+            real_data = autograd.Variable(torch.from_numpy(next(codes_batch_gen)[0])).type(dtype)
+            z = autograd.Variable(torch.from_numpy(next(latent_batch_gen))).type(dtype)
+            generation_code = gan.core_model.G.forward(z).data.cpu().numpy()
+            d_loss += gan.losses.D(gan.core_model.G, gan.core_model.D, real_data, z)
+            g_loss += gan.losses.G(gan.core_model.G, gan.core_model.D, z)
 
             generation.extend(list(map(
                 lambda x: "".join(list(map(lambda c: char_dict_inverse.get(c, "<ERROR>"),
@@ -99,7 +96,7 @@ while 1:
             f.write("\r\n".join(generation))
 
         generation = list(map(recursive_remove_unks, generation))
-        generation_clean = list(map(lambda x:remove_substrings(x, list(special_codes.keys())), generation))
+        generation_clean = list(map(lambda x:remove_substrings(x, list(["<UNK>", "<GO>", "<START>", "<END>"])), generation))
         acc_1g = te_1.evaluate(generation_clean)
         acc_2g = te_2.evaluate(generation_clean)
         acc_3g = te_3.evaluate(generation_clean)
@@ -107,17 +104,12 @@ while 1:
         print("{1}\n=== Iteration {0} | 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} | 3-gram acc: {4:.5f} ===\n".format(it,
                                                                      "\n".join(generation[0:20]),
                                                                      np.mean(acc_1g), np.mean(acc_2g), np.mean(acc_3g)))
-        st = sess.run(gan.summ.scalar_test_performance, feed_dict={gan.ph.acc_1g: np.mean(acc_1g),
-                                                                   gan.ph.acc_2g: np.mean(acc_2g),
-                                                                   gan.ph.acc_3g: np.mean(acc_3g)})
+        gan.summ.acc_1(sw, np.mean(acc_1g), it)
+        gan.summ.acc_2(sw, np.mean(acc_2g), it)
+        gan.summ.acc_3(sw, np.mean(acc_3g), it)
+        gan.summ.loss_summaries(sw, g_loss/batches_test, d_loss/batches_test, it)
 
-
-        sw.add_summary(s, it)
-        sw.add_summary(st, it)
-    if (it % 5000) == 0:  # Saving...
-        saver.save(sess, it)
+        if (it % 5000) == 0:  # Saving...
+            pass #Save
 
     it += 1
-
-
-
