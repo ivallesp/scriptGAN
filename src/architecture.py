@@ -147,7 +147,7 @@ class GAN:
 
     def define_core_model(self):
         G = Generator(noise_depth=self.noise_depth, batch_size=self.batch_size, n_outputs=self.n_outputs,
-                      max_length=max_length).cuda()
+                      max_length=self.max_length).cuda()
         D = Discriminator(channels_in=self.n_outputs).cuda()
         dOptimizer = optim.Adam(D.parameters(), lr=15e-4)
         gOptimizer = optim.Adam(G.parameters(), lr=1e-4)
