@@ -26,9 +26,9 @@ class Discriminator(nn.Module):
 
         self.c41 = nn.Conv1d(in_channels=256, out_channels=512, kernel_size=9, padding=4)
         self.c42 = nn.Conv1d(in_channels=512, out_channels=512, kernel_size=9, padding=4)
-        self.p4 = nn.AvgPool1d(kernel_size=2, stride=2)
+        self.p4 = nn.AvgPool1d(kernel_size=8, stride=2)
 
-        self.c5 = nn.Conv1d(in_channels=512, out_channels=1, kernel_size=4)
+        self.c5 = nn.Conv1d(in_channels=512, out_channels=1, kernel_size=1)
 
     def forward(self, x):
         x = nn.LeakyReLU()(self.c11(x))
@@ -82,7 +82,7 @@ class Generator(nn.Module):
         output = []
         for i in range(self.max_length):
             hx, cx = self.recurrent_cell(out, (hx, cx))
-            out = torch.tanh(hx)
+            out = hx
             output.append(out)
 
         output = torch.stack(output, dim=2)
