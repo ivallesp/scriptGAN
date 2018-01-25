@@ -51,3 +51,10 @@ def get_sentences(data_key, max_length):
     sentences, char_dict, char_dict_inverse = load_preprocessed_data(data_key=data_key, special_codes=special_codes, max_length=max_length)
     sentences_encoded = np.array(list(map(lambda s: encode_sentences(s, char_dict, max_length, special_codes), sentences)))
     return sentences, sentences_encoded, char_dict, char_dict_inverse
+
+
+def one_hot(seq_batch, depth, pytorch_format=False):
+    ohe = np.eye(depth)[seq_batch]
+    if pytorch_format:
+        ohe = ohe.transpose([0,2,1])
+    return(ohe)
