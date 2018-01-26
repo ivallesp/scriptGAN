@@ -122,7 +122,7 @@ class GAN:
                                 vocabulary_size=self.vocabulary_size)
             D_real = build_discriminator(input_=tweet)
             D_fake = build_discriminator(input_=G, reuse=True)
-            epsilon = tf.random_uniform(shape=tweet[:, :, 0:1].shape, minval=0., maxval=1.)
+            epsilon = tf.random_uniform(shape=tweet[:, 0:1, 0:1].shape, minval=0., maxval=1.)
             interp = (epsilon) * G + (1 - epsilon) * tweet
             D_interpolates = build_discriminator(input_=interp, reuse=True)
 
