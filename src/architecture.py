@@ -165,8 +165,8 @@ class GAN:
         D = Discriminator(channels_in=self.n_outputs).cuda()
         D.apply(init_weights)
         G.apply(init_weights)
-        dOptimizer = optim.Adam(D.parameters(), lr=15e-4)
-        gOptimizer = optim.Adam(G.parameters(), lr=1e-4)
+        dOptimizer = optim.Adam(D.parameters(), lr=15e-5)
+        gOptimizer = optim.Adam(G.parameters(), lr=1e-5)
         return {"G": G, "D": D, "dOptimizer": dOptimizer, "gOptimizer": gOptimizer}
 
     def define_losses(self):
