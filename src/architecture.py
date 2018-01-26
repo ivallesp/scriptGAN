@@ -168,7 +168,7 @@ class GAN:
             G_cost = D(fake_data)
             return G_cost.mean()
 
-        def calculate_W_approx(D, real_data, z):
+        def calculate_W_approx(G, D, real_data, z):
             fake_data = G.forward(z)
             D_real = D(real_data)
             D_fake = D(fake_data)
@@ -211,7 +211,7 @@ class GAN:
         def loss_summaries(sw, g_loss, d_loss, w_approx, c):
             sw_g_loss(sw, g_loss, c)
             sw_d_loss(sw, d_loss, c)
-            sw_w_approx(sw, d_loss, c)
+            sw_w_approx(sw, w_approx, c)
             sw_gan_equilibrium(sw, d_loss - g_loss, c)
 
         return {"loss_summaries": loss_summaries, "acc_1": sw_accuracy_1, "acc_2": sw_accuracy_2,
