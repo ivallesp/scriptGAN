@@ -165,7 +165,7 @@ class GAN:
         D = Discriminator(channels_in=self.n_outputs).cuda()
         D.apply(init_weights)
         G.apply(init_weights)
-        dOptimizer = optim.Adam(D.parameters(), lr=15e-5)
+        dOptimizer = optim.Adam(D.parameters(), lr=1e-5)
         gOptimizer = optim.Adam(G.parameters(), lr=1e-5)
         return {"G": G, "D": D, "dOptimizer": dOptimizer, "gOptimizer": gOptimizer}
 
