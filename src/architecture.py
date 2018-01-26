@@ -175,12 +175,12 @@ class GAN:
             gradient_penalty = calc_wasserstein_gradient_penalty(D, real_data.data, fake_data.data)
             D_real = D(real_data)
             D_fake = D(fake_data)
-            D_cost = (D_fake - D_real + gradient_penalty * 10)
+            D_cost = (D_real - D_fake + gradient_penalty * 10)
             return D_cost.mean()
 
         def calculate_G_cost(G, D, z):
             fake_data = G.forward(z)
-            G_cost = -D(fake_data)
+            G_cost = D(fake_data)
             return G_cost.mean()
 
         return {"D": calculate_D_cost, "G": calculate_G_cost}
