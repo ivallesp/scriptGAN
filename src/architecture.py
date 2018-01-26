@@ -26,6 +26,9 @@ def init_weights(m):
 class Discriminator(nn.Module):
     def __init__(self, channels_in, batch_size, cuda=True):
         super(Discriminator, self).__init__()
+        self.bn_d0 = nn.BatchNorm1d(1024)
+        self.bn_d1 = nn.BatchNorm1d(512)
+        self.bn_d2 = nn.BatchNorm1d(256)
         dtype = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
         self.recurrent_hidden = (autograd.Variable(torch.zeros(1, batch_size, 1024).type(dtype)),
@@ -38,9 +41,9 @@ class Discriminator(nn.Module):
     def forward(self, x):
         lstm_out, _ = self.rnn(x.permute(2,0,1), self.recurrent_hidden)
         lstm_out = lstm_out.permute(1,2,0)[:,:,-1]
-        o_1 = nn.LeakyReLU()(self.d_1(lstm_out))
-        o_2 = nn.LeakyReLU()(self.d_2(o_1))
-        o_3 = self.d_3(o_2)
+        o_1 = nn.LeakyReLU()(self.d_1(self.bn_d0(lstm_out)))
+        o_2 = nn.LeakyReLU()(self.d_2(self.bn_d1(o_1)))
+        o_3 = self.d_3(self.bn_d2(o_2))
         return o_3
 
 
@@ -150,8 +153,8 @@ class GAN:
         D = Discriminator(channels_in=self.n_outputs, batch_size=self.batch_size).cuda()
         D.apply(init_weights)
         G.apply(init_weights)
-        dOptimizer = optim.Adam(D.parameters(), lr=1e-5)
-        gOptimizer = optim.Adam(G.parameters(), lr=1e-5)
+        dOptimizer = optim.Adam(D.parameters(), lr=5e-5)
+        gOptimizer = optim.Adam(G.parameters(), lr=5e-5)
         return {"G": G, "D": D, "dOptimizer": dOptimizer, "gOptimizer": gOptimizer}
 
     def define_losses(self):
