@@ -112,8 +112,10 @@ class Generator(nn.Module):
 
 def calc_wasserstein_gradient_penalty(D, real_data, fake_data, cuda=True):
     assert real_data.size(0) == fake_data.size(0)
+    assert real_data.size(2) == fake_data.size(2)
     batch_size = real_data.size(0)
-    alpha = torch.rand(batch_size, 1, 1)
+    max_length = real_data.size(2)
+    alpha = torch.rand(batch_size, 1, max_length)
     alpha = alpha.expand(real_data.size())
     alpha = alpha.cuda() if cuda else alpha
 

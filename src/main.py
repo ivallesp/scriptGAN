@@ -20,7 +20,7 @@ from src.pytorch_utilities import use_devices, get_summary_writer
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V31"
+version_id = "V33"
 logs_path = get_tensorboard_logs_path()
 batch_size = 128
 critic_its = 10
