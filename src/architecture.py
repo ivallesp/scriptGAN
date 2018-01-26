@@ -28,8 +28,8 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         dtype = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-        self.recurrent_hidden = (autograd.Variable(torch.zeros(1, batch_size, 1024).type(dtype)),
-                                 autograd.Variable(torch.zeros(1, batch_size, 1024).type(dtype)))
+        self.recurrent_hidden = (autograd.Variable(torch.zeros(1, batch_size, 256).type(dtype)),
+                                 autograd.Variable(torch.zeros(1, batch_size, 256).type(dtype)))
         self.rnn = nn.LSTM(channels_in, 256)
         self.d_1 = nn.Linear(256, 256)
         self.d_2 = nn.Linear(256, 1)
