@@ -89,7 +89,7 @@ while 1:
 
             generation.extend(list(map(
                 lambda x: "".join(list(map(lambda c: char_dict_inverse.get(c, "<ERROR>"),
-                                           np.argmax(x, axis=1).tolist()))), generation_code)))
+                                           np.argmax(x, axis=2).tolist()))), generation_code)))
 
         filepath = os.path.join(get_output_path(project_id, version_id), "gen_{0:08d}.txt".format(it))
         with codecs.open(filepath, "w", "utf-8") as f:
