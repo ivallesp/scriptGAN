@@ -9,6 +9,20 @@ import numpy as np
 
 # Discriminador
 
+def init_weights(m):
+    n_conv = 0
+    n_lin = 0
+    if type(m) == nn.Linear:
+        nn.init.xavier_uniform(m.weight)
+        print("Linear layer initialized!")
+    elif type(m)==nn.Conv1d:
+        nn.init.xavier_uniform(m.weight)
+        print("Conv1D layer initialized!")
+    elif type(m)==nn.LSTMCell:
+        nn.init.xavier_uniform(m.weight_ih)
+        nn.init.xavier_uniform(m.weight_hh)
+        print("LSTM cell initialized!")
+
 class Discriminator(nn.Module):
     def __init__(self, channels_in):
         super(Discriminator, self).__init__()
@@ -149,6 +163,8 @@ class GAN:
         G = Generator(noise_depth=self.noise_depth, batch_size=self.batch_size, n_outputs=self.n_outputs,
                       max_length=self.max_length).cuda()
         D = Discriminator(channels_in=self.n_outputs).cuda()
+        D.apply(init_weights)
+        G.apply(init_weights)
         dOptimizer = optim.Adam(D.parameters(), lr=15e-4)
         gOptimizer = optim.Adam(G.parameters(), lr=1e-4)
         return {"G": G, "D": D, "dOptimizer": dOptimizer, "gOptimizer": gOptimizer}
