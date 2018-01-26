@@ -112,6 +112,12 @@ def calc_wasserstein_gradient_penalty(D, real_data, fake_data, cuda=True):
     gradient_penalty = ((gradients.contiguous().view(batch_size, -1).norm(2, dim=1) - 1) ** 2)
     return gradient_penalty
 
+def calc_gradient_penalty_slogan(real_data, fake_data, errD_real_vec, errD_fake_vec):
+    clip_fn = lambda x: x.clamp(max=0)
+    dist = ((real_data - fake_data) ** 2).sum(1).sum(1) ** 0.5
+    lip_est = (errD_real_vec - errD_fake_vec).squeeze().abs() / (dist + 1e-8)
+    lip_loss = (clip_fn(1.0 - lip_est) ** 2)
+    return(lip_loss)
 
 class NameSpacer:
     def __init__(self, **kwargs):
@@ -151,10 +157,10 @@ class GAN:
     def define_losses(self):
         def calculate_D_cost(G, D, real_data, z):
             fake_data = G.forward(z)
-            gradient_penalty = calc_wasserstein_gradient_penalty(D, real_data.data, fake_data.data)
             D_real = D(real_data)
             D_fake = D(fake_data)
-            D_cost = (D_fake - D_real)# + gradient_penalty * 10)
+            lip_loss = calc_gradient_penalty_slogan(real_data, fake_data, D_real, D_fake)
+            D_cost = D_fake - D_real + lip_loss * 10
             return D_cost.mean()
 
         def calculate_G_cost(G, D, z):
