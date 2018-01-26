@@ -160,15 +160,22 @@ class GAN:
             D_real = D(real_data)
             D_fake = D(fake_data)
             lip_loss = calc_gradient_penalty_slogan(real_data, fake_data, D_real, D_fake)
-            D_cost = D_fake - D_real + lip_loss * 10
+            D_cost = D_real - D_fake + lip_loss * 10
             return D_cost.mean()
 
         def calculate_G_cost(G, D, z):
             fake_data = G.forward(z)
-            G_cost = -D(fake_data)
+            G_cost = D(fake_data)
             return G_cost.mean()
 
-        return {"D": calculate_D_cost, "G": calculate_G_cost}
+        def calculate_W_approx(D, real_data, z):
+            fake_data = G.forward(z)
+            D_real = D(real_data)
+            D_fake = D(fake_data)
+            W_approx = D_real - D_fake
+            return W_approx.mean()
+
+        return {"D": calculate_D_cost, "G": calculate_G_cost, "W": calculate_W_approx}
 
     def define_optimizers(self):
         def optimize_D(real_data, z):
@@ -190,6 +197,8 @@ class GAN:
     def define_summaries(self):
         sw_g_loss = lambda sw, x, c: sw.add_scalar(self.name + "/Summaries/" + self.name + "/" + "G_loss", x, c)
         sw_d_loss = lambda sw, x, c: sw.add_scalar(self.name + "/Summaries/" + self.name + "/" + "D_loss", x, c)
+        sw_w_approx = lambda sw, x, c: sw.add_scalar(self.name + "/Summaries/" + self.name + "/" + "Wasserstein", x, c)
+
         sw_gan_equilibrium = lambda sw, x, c: sw.add_scalar(
             self.name + "/Summaries/" + self.name + "/" + "GAN_Equilibrium", x, c)
         sw_accuracy_1 = lambda sw, x, c: sw.add_scalar(self.name + "/Summaries/" + self.name + "/" + "1_gram_accuracy",
@@ -199,9 +208,10 @@ class GAN:
         sw_accuracy_3 = lambda sw, x, c: sw.add_scalar(self.name + "/Summaries/" + self.name + "/" + "3_gram_accuracy",
                                                        x, c)
 
-        def loss_summaries(sw, g_loss, d_loss, c):
+        def loss_summaries(sw, g_loss, d_loss, w_approx, c):
             sw_g_loss(sw, g_loss, c)
             sw_d_loss(sw, d_loss, c)
+            sw_w_approx(sw, d_loss, c)
             sw_gan_equilibrium(sw, d_loss - g_loss, c)
 
         return {"loss_summaries": loss_summaries, "acc_1": sw_accuracy_1, "acc_2": sw_accuracy_2,

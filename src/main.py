@@ -79,13 +79,14 @@ while 1:
 
     if (it % test_period) == 0:
         generation=[]
-        d_loss = g_loss = 0
+        d_loss = g_loss = w_approx = 0
         for bt in range(batches_test):
             real_data = autograd.Variable(torch.from_numpy(next(codes_batch_gen)[0])).type(dtype)
             z = autograd.Variable(torch.from_numpy(next(latent_batch_gen))).type(dtype)
             generation_code = gan.core_model.G.forward(z).data.cpu().numpy()
             d_loss += gan.losses.D(gan.core_model.G, gan.core_model.D, real_data, z)
             g_loss += gan.losses.G(gan.core_model.G, gan.core_model.D, z)
+            w_approx += gan.losses.W(gan.core_model.D, real_data, z)
 
             generation.extend(list(map(
                 lambda x: "".join(list(map(lambda c: char_dict_inverse.get(c, "<ERROR>"),
@@ -107,7 +108,7 @@ while 1:
         gan.summ.acc_1(sw, np.mean(acc_1g), it)
         gan.summ.acc_2(sw, np.mean(acc_2g), it)
         gan.summ.acc_3(sw, np.mean(acc_3g), it)
-        gan.summ.loss_summaries(sw, g_loss/batches_test, d_loss/batches_test, it)
+        gan.summ.loss_summaries(sw, g_loss/batches_test, d_loss/batches_test, w_approx/batches_test, it)
 
         if (it % 5000) == 0:  # Saving...
             pass #Save
