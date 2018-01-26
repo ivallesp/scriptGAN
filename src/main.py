@@ -22,7 +22,7 @@ from src.pytorch_utilities import use_devices, get_summary_writer
 project_id = "GAN_TATOEBA"
 version_id = "V35"
 logs_path = get_tensorboard_logs_path()
-batch_size = 128
+batch_size = 64
 critic_its = 10
 noise_depth = 100
 batches_test = 10
@@ -34,7 +34,7 @@ cuda=True
 it=0
 
 # Load configuration
-use_devices(1)
+use_devices(2)
 
 
 # Load data

@@ -29,7 +29,7 @@ class Discriminator(nn.Module):
         dtype = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
         self.recurrent_hidden = (autograd.Variable(torch.zeros(1, batch_size, 1024).type(dtype)),
-                                 autograd.Variable(torch.zeros((1, batch_size, 1024).type(dtype))))
+                                 autograd.Variable(torch.zeros(1, batch_size, 1024).type(dtype)))
         self.rnn = nn.LSTM(channels_in, 1024)
         self.d_1 = nn.Linear(1024, 512)
         self.d_2 = nn.Linear(512, 256)
@@ -109,7 +109,7 @@ def calc_wasserstein_gradient_penalty(D, real_data, fake_data, cuda=True):
                                   disc_interpolates.size()),
                               create_graph=True, retain_graph=True, only_inputs=True)[0]
 
-    gradient_penalty = ((gradients.view(batch_size, -1).norm(2, dim=1) - 1) ** 2)
+    gradient_penalty = ((gradients.contiguous().view(batch_size, -1).norm(2, dim=1) - 1) ** 2)
     return gradient_penalty
 
 
@@ -154,7 +154,7 @@ class GAN:
             gradient_penalty = calc_wasserstein_gradient_penalty(D, real_data.data, fake_data.data)
             D_real = D(real_data)
             D_fake = D(fake_data)
-            D_cost = (D_fake - D_real + gradient_penalty * 10)
+            D_cost = (D_fake - D_real)# + gradient_penalty * 10)
             return D_cost.mean()
 
         def calculate_G_cost(G, D, z):
