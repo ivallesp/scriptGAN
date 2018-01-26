@@ -24,45 +24,24 @@ def init_weights(m):
         print("LSTM cell initialized!")
 
 class Discriminator(nn.Module):
-    def __init__(self, channels_in):
+    def __init__(self, channels_in, batch_size, cuda=True):
         super(Discriminator, self).__init__()
-        self.c11 = nn.Conv1d(in_channels=channels_in, out_channels=64, kernel_size=9, padding=4)
-        self.c12 = nn.Conv1d(in_channels=64, out_channels=64, kernel_size=9, padding=4)
-        self.p1 = nn.AvgPool1d(kernel_size=2, stride=2)
+        dtype = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-        self.c21 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=9, padding=4)
-        self.c22 = nn.Conv1d(in_channels=128, out_channels=128, kernel_size=9, padding=4)
-        self.p2 = nn.AvgPool1d(kernel_size=2, stride=2)
-
-        self.c31 = nn.Conv1d(in_channels=128, out_channels=256, kernel_size=9, padding=4)
-        self.c32 = nn.Conv1d(in_channels=256, out_channels=256, kernel_size=9, padding=4)
-        self.p3 = nn.AvgPool1d(kernel_size=2, stride=2)
-
-        self.c41 = nn.Conv1d(in_channels=256, out_channels=512, kernel_size=9, padding=4)
-        self.c42 = nn.Conv1d(in_channels=512, out_channels=512, kernel_size=9, padding=4)
-        self.p4 = nn.AvgPool1d(kernel_size=8, stride=2)
-
-        self.c5 = nn.Conv1d(in_channels=512, out_channels=1, kernel_size=1)
+        self.recurrent_hidden = (autograd.Variable(torch.zeros(1, batch_size, 1024)),
+                                 autograd.Variable(torch.zeros((1, batch_size, 1024))))
+        self.rnn = nn.LSTM(channels_in, 1024)
+        self.d_1 = nn.Linear(1024, 512)
+        self.d_2 = nn.Linear(512, 256)
+        self.d_3 = nn.Linear(256, 1)
 
     def forward(self, x):
-        x = nn.LeakyReLU()(self.c11(x))
-        x = nn.LeakyReLU()(self.c12(x))
-        x = self.p1(x)
-
-        x = nn.LeakyReLU()(self.c21(x))
-        x = nn.LeakyReLU()(self.c22(x))
-        x = self.p2(x)
-
-        x = nn.LeakyReLU()(self.c31(x))
-        x = nn.LeakyReLU()(self.c32(x))
-        x = self.p3(x)
-
-        x = nn.LeakyReLU()(self.c41(x))
-        x = nn.LeakyReLU()(self.c42(x))
-        x = self.p4(x)
-
-        x = self.c5(x)
-        return x
+        lstm_out, _ = self.rnn(x, self.recurrent_hidden)
+        lstm_out = lstm_out[:,:,-1]
+        o_1 = nn.LeakyReLU()(self.d_1(lstm_out))
+        o_2 = nn.LeakyReLU()(self.d_2(o_1))
+        o_3 = self.d_3(o_2)
+        return o_3
 
 
 # Generator
@@ -162,7 +141,7 @@ class GAN:
     def define_core_model(self):
         G = Generator(noise_depth=self.noise_depth, batch_size=self.batch_size, n_outputs=self.n_outputs,
                       max_length=self.max_length).cuda()
-        D = Discriminator(channels_in=self.n_outputs).cuda()
+        D = Discriminator(channels_in=self.n_outputs, batch_size=self.batch_size).cuda()
         D.apply(init_weights)
         G.apply(init_weights)
         dOptimizer = optim.Adam(D.parameters(), lr=1e-5)
