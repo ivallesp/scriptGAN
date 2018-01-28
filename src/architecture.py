@@ -153,8 +153,8 @@ class GAN:
         D = Discriminator(channels_in=self.n_outputs, batch_size=self.batch_size).cuda()
         D.apply(init_weights)
         G.apply(init_weights)
-        dOptimizer = optim.Adam(D.parameters(), lr=5e-5)
-        gOptimizer = optim.Adam(G.parameters(), lr=5e-5)
+        dOptimizer = optim.Adam(D.parameters(), lr=1e-5)
+        gOptimizer = optim.Adam(G.parameters(), lr=1e-5)
         return {"G": G, "D": D, "dOptimizer": dOptimizer, "gOptimizer": gOptimizer}
 
     def define_losses(self):
@@ -163,7 +163,7 @@ class GAN:
             D_real = D(real_data)
             D_fake = D(fake_data)
             lip_loss = calc_gradient_penalty_slogan(real_data, fake_data, D_real, D_fake)
-            D_cost = D_real - D_fake + lip_loss * 10
+            D_cost = D_real - D_fake + lip_loss * 0.10
             return D_cost.mean()
 
         def calculate_G_cost(G, D, z):
