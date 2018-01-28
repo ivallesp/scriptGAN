@@ -1,8 +1,8 @@
 import tensorflow as tf
 
-from src.nn_frankenstein.activations import leaky_relu
-from src.nn_frankenstein.decoder import build_lstm_feed_back_layer
-from src.nn_frankenstein.normalization import BatchNorm
+from src.tf_frankenstein.activations import leaky_relu
+from src.tf_frankenstein.decoder import build_lstm_feed_back_layer
+from src.tf_frankenstein.normalization import BatchNorm
 
 
 
