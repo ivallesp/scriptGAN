@@ -27,6 +27,8 @@ class Discriminator(nn.Module):
     def __init__(self, channels_in, batch_size, cuda=True):
         super(Discriminator, self).__init__()
         dtype = torch.cuda.FloatTensor if cuda else torch.FloatTensor
+
+        self.ln_in()
         self.bn_d0 = nn.BatchNorm1d(1024)
         self.bn_d1 = nn.BatchNorm1d(512)
         self.bn_d2 = nn.BatchNorm1d(256)
@@ -39,6 +41,7 @@ class Discriminator(nn.Module):
         self.d_3 = nn.Linear(256, 1)
 
     def forward(self, x):
+        x = self.ln_in(x)
         lstm_out, _ = self.rnn(x.permute(2,0,1), self.recurrent_hidden)
         lstm_out = lstm_out.permute(1,2,0)[:,:,-1]
         o_1 = nn.LeakyReLU()(self.d_1(self.bn_d0(lstm_out)))
