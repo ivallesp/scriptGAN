@@ -167,7 +167,7 @@ class GAN:
             D_real = D(real_data)
             D_fake = D(fake_data)
             lip_loss = calc_gradient_penalty_slogan(real_data, fake_data, D_real, D_fake)
-            D_cost = D_real - D_fake + lip_loss * 0.10
+            D_cost = D_real - D_fake + lip_loss * 10
             return D_cost.mean()
 
         def calculate_G_cost(G, D, z):
