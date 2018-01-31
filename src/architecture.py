@@ -31,7 +31,7 @@ class Discriminator(nn.Module):
 
 
         self.recurrent_hidden = (autograd.Variable(torch.zeros(3, batch_size, n_recurrent_units).type(dtype)),
-                                 autograd.Variable(torch.zeros(, atch_size, n_recurrent_units).type(dtype)))
+                                 autograd.Variable(torch.zeros(3, batch_size, n_recurrent_units).type(dtype)))
         self.rnn_1 = nn.LSTM(channels_in, n_recurrent_units, num_layers=3)
         self.d_1 = nn.Linear(n_recurrent_units, 512)
         self.d_2 = nn.Linear(512, 256)
