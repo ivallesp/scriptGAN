@@ -99,7 +99,10 @@ while 1:
             f.write("\r\n".join(generation))
 
         generation = list(map(recursive_remove_unks, generation))
-        generation_clean = list(map(lambda x:remove_substrings(x, list(special_codes.keys())), generation))
+        generation_clean = list(map(lambda x:remove_substrings(x, list(["<START>",
+                                                                        "<END>",
+                                                                        "<GO>",
+                                                                        "<UNK>"])), generation))
         acc_1g = te_1.evaluate(generation_clean)
         acc_2g = te_2.evaluate(generation_clean)
         acc_3g = te_3.evaluate(generation_clean)
