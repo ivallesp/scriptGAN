@@ -25,19 +25,15 @@ def init_weights(m):
         print("LSTM cell initialized!")
 
 class Discriminator(nn.Module):
-    def __init__(self, channels_in, batch_size, cuda=True):
+    def __init__(self, n_recurrent_units, channels_in, batch_size, cuda=True):
         super(Discriminator, self).__init__()
         dtype = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-        self.ln_in =  LayerNorm(channels_in)
-        self.bn_d0 = nn.BatchNorm1d(1024)
-        self.bn_d1 = nn.BatchNorm1d(512)
-        self.bn_d2 = nn.BatchNorm1d(256)
 
-        self.recurrent_hidden = (autograd.Variable(torch.zeros(1, batch_size, 1024).type(dtype)),
-                                 autograd.Variable(torch.zeros(1, batch_size, 1024).type(dtype)))
-        self.rnn = nn.LSTM(channels_in, 1024)
-        self.d_1 = nn.Linear(1024, 512)
+        self.recurrent_hidden = (autograd.Variable(torch.zeros(3, batch_size, n_recurrent_units).type(dtype)),
+                                 autograd.Variable(torch.zeros(, atch_size, n_recurrent_units).type(dtype)))
+        self.rnn_1 = nn.LSTM(channels_in, n_recurrent_units, num_layers=3)
+        self.d_1 = nn.Linear(n_recurrent_units, 512)
         self.d_2 = nn.Linear(512, 256)
         self.d_3 = nn.Linear(256, 1)
 
@@ -45,33 +41,33 @@ class Discriminator(nn.Module):
         x = self.ln_in.forward(x)
         lstm_out, _ = self.rnn(x.permute(2,0,1), self.recurrent_hidden)
         lstm_out = lstm_out.permute(1,2,0)[:,:,-1]
-        o_1 = nn.LeakyReLU()(self.d_1(self.bn_d0(lstm_out)))
-        o_2 = nn.LeakyReLU()(self.d_2(self.bn_d1(o_1)))
-        o_3 = self.d_3(self.bn_d2(o_2))
+        o_1 = nn.LeakyReLU()(self.d_1(lstm_out))
+        o_2 = nn.LeakyReLU()(self.d_2(o_1))
+        o_3 = self.d_3(o_2)
         return o_3
 
 
 # Generator
 class Generator(nn.Module):
-    def __init__(self, noise_depth, batch_size, max_length, n_outputs, cuda=True):
+    def __init__(self, n_recurrent_units, noise_depth, batch_size, max_length, n_outputs, cuda=True):
         super(Generator, self).__init__()
         dtype = torch.cuda.FloatTensor if cuda else torch.FloatTensor
-        self.bn_d_proj_zh = nn.BatchNorm1d(1024)
-        self.bn_d_proj_zc = nn.BatchNorm1d(1024)
-        self.bn_d0 = nn.BatchNorm1d(1024)
+        self.bn_d_proj_zh = nn.BatchNorm1d(n_recurrent_units)
+        self.bn_d_proj_zc = nn.BatchNorm1d(n_recurrent_units)
+        self.bn_d0 = nn.BatchNorm1d(n_recurrent_units)
         self.bn_d1 = nn.BatchNorm1d(512)
         self.bn_d2 = nn.BatchNorm1d(256)
 
         self.max_length = max_length
-        self.d_proj_zh = nn.Linear(noise_depth, 1024)
-        self.d_proj_zc = nn.Linear(noise_depth, 1024)
+        self.d_proj_zh = nn.Linear(noise_depth, n_recurrent_units)
+        self.d_proj_zc = nn.Linear(noise_depth, n_recurrent_units)
 
-        self.recurrent_cell = nn.LSTMCell(1024, 1024)
-        self.d_1 = nn.Linear(1024, 512)
+        self.recurrent_cell = nn.LSTMCell(n_recurrent_units, n_recurrent_units)
+        self.d_1 = nn.Linear(n_recurrent_units, 512)
         self.d_2 = nn.Linear(512, 256)
         self.d_3 = nn.Linear(256, n_outputs)
         self.go = autograd.Variable(
-            torch.from_numpy(np.array([1] + [0] * (1024 - 1))).type(dtype).view([1, -1]).repeat(batch_size, 1))
+            torch.from_numpy(np.array([1] + [0] * (n_recurrent_units - 1))).type(dtype).view([1, -1]).repeat(batch_size, 1))
 
     def forward(self, z):
         zh = self.bn_d_proj_zh(self.d_proj_zh(z))
