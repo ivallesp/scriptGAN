@@ -29,7 +29,7 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         dtype = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-        self.ln_in =  LayerNorm(1024)
+        self.ln_in =  LayerNorm(channels_in)
         self.bn_d0 = nn.BatchNorm1d(1024)
         self.bn_d1 = nn.BatchNorm1d(512)
         self.bn_d2 = nn.BatchNorm1d(256)
