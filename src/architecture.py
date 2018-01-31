@@ -153,7 +153,7 @@ class GAN:
         with tf.variable_scope("Summaries"):
             train_final_scalar_probes = {"D_loss": tf.squeeze(self.losses.loss_d),
                                          "G_loss": tf.squeeze(self.losses.loss_g),
-                                         "D_loss_original": tf.squeeze(self.losses.loss_d_real + self.losses.loss_d_fake )
+                                         "D_loss_original": tf.squeeze(self.losses.loss_d_real + self.losses.loss_d_fake),
                                          "GAN_Loss": tf.squeeze((self.losses.loss_d + self.losses.loss_g) / 2),
                                          "GAN_Equilibrium": tf.squeeze(self.losses.loss_d - self.losses.loss_g)}
 
