@@ -139,7 +139,7 @@ class GAN:
             loss_d_fake = - self.core_model.D_fake
             loss_d = loss_d_fake + loss_d_real + 1*gradient_penalty
             loss_g = self.core_model.D_fake
-        return {"loss_d_real": loss_d_real, "loss_d_fale": loss_d_fake, "loss_d": loss_d, "loss_g": loss_g}
+        return {"loss_d_real": loss_d_real, "loss_d_fake": loss_d_fake, "loss_d": loss_d, "loss_g": loss_g}
 
     def define_optimizers(self):
         self.g_vars = list(filter(lambda k: "Generator" in k.name, tf.trainable_variables()))
@@ -153,6 +153,7 @@ class GAN:
         with tf.variable_scope("Summaries"):
             train_final_scalar_probes = {"D_loss": tf.squeeze(self.losses.loss_d),
                                          "G_loss": tf.squeeze(self.losses.loss_g),
+                                         "D_loss_original": tf.squeeze(self.losses.loss_d_real + self.losses.loss_d_fake )
                                          "GAN_Loss": tf.squeeze((self.losses.loss_d + self.losses.loss_g) / 2),
                                          "GAN_Equilibrium": tf.squeeze(self.losses.loss_d - self.losses.loss_g)}
 
