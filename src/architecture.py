@@ -137,7 +137,7 @@ class GAN:
         with tf.variable_scope("Losses"):
             loss_d_real = self.core_model.D_real
             loss_d_fake = - self.core_model.D_fake
-            loss_d = loss_d_fake + loss_d_real + 10 * gradient_penalty
+            loss_d = loss_d_fake + loss_d_real + 1*gradient_penalty
             loss_g = self.core_model.D_fake
         return {"loss_d_real": loss_d_real, "loss_d_fale": loss_d_fake, "loss_d": loss_d, "loss_g": loss_g}
 
