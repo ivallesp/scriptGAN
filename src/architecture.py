@@ -38,7 +38,6 @@ class Discriminator(nn.Module):
         self.d_3 = nn.Linear(256, 1)
 
     def forward(self, x):
-        x = self.ln_in.forward(x)
         lstm_out, _ = self.rnn(x.permute(2,0,1), self.recurrent_hidden)
         lstm_out = lstm_out.permute(1,2,0)[:,:,-1]
         o_1 = nn.LeakyReLU()(self.d_1(lstm_out))
