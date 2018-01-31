@@ -66,7 +66,13 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
         o=tf.nn.softmax(unstacked_output)
     return(o)
 
-
+def calculate_slogan_penalty(real_data, fake_data, err_real_data, err_fake_data, eps=1e-8):
+    with tf.variable_scope("slogan_penalty"):
+        axes_red = list(range(1, len(real_data.shape)))
+        dist = tf.sqrt(tf.reduce_sum((real_data-fake_data)**2, axis=axes_red), "l2_distance")
+        lip_estimation = tf.abs(err_real_data-err_fake_data)/(dist+eps)
+        lip_penalty = tf.minimum(1-lip_estimation, 0.0)**2
+    return lip_penalty
 
 
 class NameSpacer:
@@ -111,24 +117,23 @@ class GAN:
 
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
-            tweet = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
+            ohe_in = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
             G = build_generator(z=self.placeholders.z,
                                 max_length=self.max_length,
                                 batch_size=self.batch_size,
                                 vocabulary_size=self.vocabulary_size)
-            D_real = build_discriminator(input_=tweet)
+            D_real = build_discriminator(input_=ohe_in)
             D_fake = build_discriminator(input_=G, reuse=True)
-            epsilon = tf.random_uniform(shape=tweet[:, :, 0:1].shape, minval=0., maxval=1.)
-            interp = (epsilon) * G + (1 - epsilon) * tweet
-            D_interpolates = build_discriminator(input_=interp, reuse=True)
 
-            grad_interpolated = tf.gradients(D_interpolates, [interp])[0]
-        return {"G": G, "D_real": D_real, "D_fake": D_fake, "grad_interpolated": grad_interpolated}
+            slogan_penalty = calculate_slogan_penalty(real_data=ohe_in,
+                                                     fake_data=G,
+                                                     err_real_data= D_real,
+                                                     err_fake_data=D_fake)
+
+        return {"G": G, "D_real": D_real, "D_fake": D_fake, "SLOGAN_penalty": slogan_penalty}
 
     def define_losses(self):
-        grads_l2 = tf.sqrt(tf.reduce_sum(tf.square(self.core_model.grad_interpolated),
-                                         reduction_indices=[1, 2], keep_dims=True))  # Norm 2
-        gradient_penalty = (grads_l2 - 1) ** 2
+        gradient_penalty = self.core_model.SLOGAN_penalty
         with tf.variable_scope("Losses"):
             loss_d_real = self.core_model.D_real
             loss_d_fake = - self.core_model.D_fake
