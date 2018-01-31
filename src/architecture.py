@@ -1,8 +1,9 @@
 import tensorflow as tf
 
-from src.nn_frankenstein.activations import leaky_relu
-from src.nn_frankenstein.decoder import build_lstm_feed_back_layer
-from src.nn_frankenstein.normalization import BatchNorm
+from src.tf_frankenstein.activations import leaky_relu
+from src.tf_frankenstein.decoder import build_lstm_feed_back_layer
+from src.tf_frankenstein.normalization import BatchNorm
+
 
 
 def build_discriminator(input_, reuse=False):
@@ -12,7 +13,6 @@ def build_discriminator(input_, reuse=False):
 
         x = tf.layers.conv1d(x, filters=64, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1_2")
-        print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_1")
 
         x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
@@ -20,7 +20,6 @@ def build_discriminator(input_, reuse=False):
 
         x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_2_2")
-        print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_2")
 
         x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
@@ -28,7 +27,6 @@ def build_discriminator(input_, reuse=False):
 
         x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_3_2")
-        print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_3")
 
         x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
@@ -36,12 +34,10 @@ def build_discriminator(input_, reuse=False):
 
         x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4_2")
-        print(x.shape)
         x = tf.layers.average_pooling1d(x, pool_size=8, strides=2, name="pooling_4")
 
         x = tf.layers.conv1d(x, filters=1, kernel_size=1, strides=1, activation=None,
                              kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_5_final")
-        print(x.shape)
     return x
 
 
@@ -63,7 +59,7 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
 
         lstm_stacked_output = tf.reshape(output_dec, shape=[-1, output_dec.shape[2].value], name="g_stack_LSTM")
         d = tf.layers.dense(bn_d_1(lstm_stacked_output), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
-        d = tf.layers.dense(bn_d_2(d), 1024, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
+        d = tf.layers.dense(bn_d_2(d), 256, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
         d = tf.layers.dense(bn_d_3(d), vocabulary_size, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_3")
 
         unstacked_output = tf.reshape(d, shape=[batch_size, max_length, vocabulary_size], name="g_unstack_LSTM")
@@ -79,13 +75,13 @@ class NameSpacer:
 
 
 class GAN:
-    def __init__(self, batch_size, noise_depth, max_length, vocabulary_size, name="GAN"):
+    def __init__(self, batch_size=512, noise_depth=100, max_length=64, code_size=100, name="GAN"):
         self.name = name
         self.n_neurons_rnn_gen = 1024
         self.batch_size = batch_size
         self.max_length = max_length
         self.noise_depth = noise_depth
-        self.vocabulary_size = vocabulary_size
+        self.vocabulary_size = code_size
         self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
         self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00015)
         self.define_computation_graph()
@@ -166,3 +162,5 @@ class GAN:
         return {"scalar_final_performance": tf.summary.merge(final_performance_scalar),
                 "scalar_test_performance": tf.summary.merge(test_performance_scalar)}
 
+
+__architectures__ = {"GAN": GAN}

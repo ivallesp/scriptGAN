@@ -8,9 +8,9 @@ from src.data_loaders import data_functions
 from src.general_utilities import *
 
 
-def load_preprocessed_data(data_key ,special_codes, seed=655321):
+def load_preprocessed_data(data_key ,special_codes, seed=655321, **kwargs):
     data_loader = data_functions[data_key.upper()]
-    list_of_phrases = data_loader()
+    list_of_phrases = data_loader(**kwargs)
 
     random.seed(seed)
     random.shuffle(list_of_phrases)
@@ -24,15 +24,6 @@ def load_preprocessed_data(data_key ,special_codes, seed=655321):
     return list_of_phrases, char_dict, inverse_char_dict
 
 
-def get_batcher(iterable, vocabulary_dict, batch_size, start_code, unknown_code, end_code, max_length):
-    while 1:
-        for batch in batching(iterable, n=batch_size):
-            if len(batch) < batch_size:
-                continue
-            batch_codes = np.array(list(
-                map(lambda s: encode_sentences(s, vocabulary_dict, start_code, unknown_code, end_code, max_length), batch)))
-            yield batch_codes
-
 
 def get_latent_vectors_generator(BATCH_SIZE, noise_depth):
     while 1:
@@ -40,9 +31,30 @@ def get_latent_vectors_generator(BATCH_SIZE, noise_depth):
         yield (z)
 
 
-def encode_sentences(sentence, vocabulary_dict, start_code, unknown_code, end_code, max_length):
-    sentence = sentence[:(max_length - 3)] if len(sentence) > (
-    max_length - 2) else sentence  # Trim sentence if exceeds max length
-    code = [start_code] + list(map(lambda w: vocabulary_dict.get(w, unknown_code), sentence)) + [end_code]  # Encode and add start and end symbols
-    code = code + [unknown_code] * (max_length - len(code))  # Pad code
+def encode_sentences(sentence, code_dict, max_length, special_codes):
+    #sentence = sentence[:(max_length - 3)] if len(sentence) > (
+    #max_length - 2) else sentence  # Trim sentence if exceeds max length
+    code = [special_codes["<START>"]] + list(map(lambda w: code_dict.get(w, special_codes["<UNK>"]), sentence)) + \
+           [special_codes["<END>"]]  # Encode and add start and end symbols
+    code = code + [special_codes["<UNK>"]] * (max_length - len(code))  # Pad code
     return code
+
+
+def get_sentences(data_key, max_length):
+    special_codes = {
+        "<UNK>": 0,
+        "<GO>": 1,
+        "<START>": 2,
+        "<END>": 3
+    }
+
+    sentences, char_dict, char_dict_inverse = load_preprocessed_data(data_key=data_key, special_codes=special_codes, max_length=max_length)
+    sentences_encoded = np.array(list(map(lambda s: encode_sentences(s, char_dict, max_length, special_codes), sentences)))
+    return sentences, sentences_encoded, char_dict, char_dict_inverse
+
+
+def one_hot(seq_batch, depth, pytorch_format=False):
+    ohe = np.eye(depth)[seq_batch]
+    if pytorch_format:
+        ohe = ohe.transpose([0,2,1])
+    return(ohe)
