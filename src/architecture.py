@@ -27,19 +27,21 @@ def init_weights(m):
 class Discriminator(nn.Module):
     def __init__(self, n_recurrent_units, channels_in, batch_size, cuda=True):
         super(Discriminator, self).__init__()
+        self.batch_size=batch_size
+        self.n_recurrent_units = n_recurrent_units
         dtype = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-
-        self.recurrent_hidden = (autograd.Variable(torch.zeros(3, batch_size, n_recurrent_units).type(dtype)),
-                                 autograd.Variable(torch.zeros(3, batch_size, n_recurrent_units).type(dtype)))
-        self.rnn = nn.LSTM(channels_in, n_recurrent_units, num_layers=3)
+        self.recurrent_hidden = (autograd.Variable(torch.zeros(1, batch_size, n_recurrent_units).type(dtype)),
+                                 autograd.Variable(torch.zeros(1, batch_size, n_recurrent_units).type(dtype)))
+        self.rnn = nn.LSTM(channels_in, n_recurrent_units, num_layers=1)
         self.d_1 = nn.Linear(n_recurrent_units, 512)
         self.d_2 = nn.Linear(512, 256)
         self.d_3 = nn.Linear(256, 1)
 
     def forward(self, x):
         lstm_out, _ = self.rnn(x.permute(2,0,1), self.recurrent_hidden)
-        lstm_out = lstm_out.permute(1,2,0)[:,:,-1]
+        lstm_out = lstm_out.permute(1,2,0)
+        lstm_out = lstm_out.view(self.batch_size, self.n_recurrent_units*lstm_out.size(1))
         o_1 = nn.LeakyReLU()(self.d_1(lstm_out))
         o_2 = nn.LeakyReLU()(self.d_2(o_1))
         o_3 = self.d_3(o_2)
