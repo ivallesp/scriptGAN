@@ -13,17 +13,18 @@ from src.text_tools import *
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V36"
+version_id = "V37"
 logs_path = get_tensorboard_logs_path()
-batch_size = 512
-critic_its = 10
+batch_size = 256
+critic_its = 1
 noise_depth = 100
 batches_test = 10
 test_period = 100
 save_period = 5000
+kt = 0
+gamma = 0.5
 restore = False
 max_length = 64
-
 
 # Load configuration
 config = json.load(open("settings.json"))
@@ -74,12 +75,17 @@ while 1:
     for _ in range(critic_its):
         batch, _ = next(codes_batch_gen)
         z = next(latent_batch_gen)
-        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
+        sess.run(gan.op.D, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.kt:kt, gan.ph.gamma:gamma})
 
     batch, _ = next(codes_batch_gen)
     z = next(latent_batch_gen)
 
-    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
+    sess.run(gan.op.G, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.kt:kt, gan.ph.gamma:gamma})
+    z = next(latent_batch_gen)
+    d_real_loss = sess.run(gan.losses.loss_d_real, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.kt:kt, gan.ph.gamma:gamma})
+    d_fake_loss = sess.run(gan.losses.loss_d_fake, feed_dict={gan.ph.codes_in: batch, gan.ph.z: z, gan.ph.kt:kt, gan.ph.gamma:gamma})
+
+    kt = np.clip(kt + 0.001 * (gamma * d_real_loss - d_fake_loss), 0., 1.)
 
     if (it % test_period) == 0:  # Reporting...
         generation=[]
@@ -88,7 +94,7 @@ while 1:
             z = next(latent_batch_gen)
             s, generation_code = sess.run([gan.summ.scalar_final_performance, gan.core_model.G],
                                           feed_dict={gan.ph.codes_in: batch,
-                                                     gan.ph.z: z})
+                                                     gan.ph.z: z, gan.ph.kt:kt, gan.ph.gamma:gamma})
 
             generation.extend(list(map(
                 lambda x: "".join(list(map(lambda c: char_dict_inverse.get(c, "<ERROR>"),

@@ -6,8 +6,8 @@ from src.tf_frankenstein.normalization import BatchNorm
 
 
 
-def build_discriminator(input_, max_length, reuse=False):
-    with tf.variable_scope("Discriminator", reuse=reuse):
+def encoder(input_, max_length, z_depth, reuse=False):
+    with tf.variable_scope("Discriminator_encoder", reuse=reuse):
         cell = tf.nn.rnn_cell.LSTMCell(1024, use_peepholes=True, initializer=tf.contrib.layers.xavier_initializer())
         x,_ = tf.nn.dynamic_rnn(cell, input_, dtype=tf.float32, scope="DynamicRNN")
         x = tf.reshape(x, shape=[-1, x.shape[2].value], name="stack_LSTM")
@@ -15,13 +15,12 @@ def build_discriminator(input_, max_length, reuse=False):
         x = tf.layers.dense(x, 16, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
         x = tf.reshape(x, shape=[input_.shape[0].value, max_length, 16], name="unstack_LSTM")
         x = tf.reshape(x, shape=[input_.shape[0].value, -1], name="combination_LSTM")
-        x = tf.layers.dense(x, 1, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_o")
-
+        x = tf.layers.dense(x, z_depth, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_o")
     return x
 
 
-def build_generator(z, max_length, batch_size, vocabulary_size):
-    with tf.variable_scope("Generator", reuse=False):
+def decoder(z, scope, reuse, max_length, batch_size, vocabulary_size):
+    with tf.variable_scope(scope, reuse=reuse):
         bn_z = BatchNorm(name="batch_normalization_z")
         bn_zh = BatchNorm(name="batch_normalization_zh")
         bn_zc = BatchNorm(name="batch_normalization_zc")
@@ -45,6 +44,21 @@ def build_generator(z, max_length, batch_size, vocabulary_size):
         o=tf.nn.softmax(unstacked_output)
     return(o)
 
+def discriminator(input_, z_depth, max_length, batch_size, vocabulary_size, reuse=False):
+    code = encoder(input_, max_length, z_depth, reuse=reuse)
+    output = decoder(code, scope="Discriminator_decoder", reuse=reuse, max_length=max_length, batch_size=batch_size,
+                     vocabulary_size=vocabulary_size)
+    return(output)
+
+def generator(z, max_length, batch_size, vocabulary_size, reuse=False):
+    output = decoder(z, scope="Generator_decoder", reuse=reuse, max_length=max_length, batch_size=batch_size,
+                     vocabulary_size=vocabulary_size)
+    return(output)
+
+
+def l1_loss(x, y):
+    return tf.reduce_mean(tf.abs(x - y))
+
 def calculate_slogan_penalty(real_data, fake_data, err_real_data, err_fake_data, eps=1e-8):
     with tf.variable_scope("slogan_penalty"):
         axes_red = list(range(1, len(real_data.shape)))
@@ -67,8 +81,8 @@ class GAN:
         self.max_length = max_length
         self.noise_depth = noise_depth
         self.vocabulary_size = code_size
-        self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
-        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00015)
+        self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.0001)
+        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.0001)
         self.define_computation_graph()
 
         # Aliases
@@ -89,36 +103,45 @@ class GAN:
         with tf.variable_scope("Placeholders"):
             codes_in = tf.placeholder(dtype=tf.int32, shape=(self.batch_size, self.max_length), name="codes_in")
             z = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.noise_depth], name="z")
+            kt = tf.placeholder(dtype=tf.float32, shape=None, name="kt")
+            gamma = tf.placeholder(dtype=tf.float32, shape=None, name="gamma")
             acc_1g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_1g")
             acc_2g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_2g")
             acc_3g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_3g")
-        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g}
+            ohe_in = tf.one_hot(codes_in, depth=self.vocabulary_size)
+
+        return {"codes_in": codes_in, "ohe_in": ohe_in, "z": z, "kt": kt, "gamma": gamma, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g}
 
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
-            ohe_in = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
-            G = build_generator(z=self.placeholders.z,
-                                max_length=self.max_length,
-                                batch_size=self.batch_size,
-                                vocabulary_size=self.vocabulary_size)
-            D_real = build_discriminator(input_=ohe_in, max_length=self.max_length)
-            D_fake = build_discriminator(input_=G, max_length=self.max_length, reuse=True)
+            G = generator(z=self.placeholders.z,
+                          max_length=self.max_length,
+                          batch_size=self.batch_size,
+                          vocabulary_size=self.vocabulary_size,
+                          reuse=False)
 
-            slogan_penalty = calculate_slogan_penalty(real_data=ohe_in,
-                                                     fake_data=G,
-                                                     err_real_data= D_real,
-                                                     err_fake_data=D_fake)
+            D_fake = discriminator(input_=G,
+                                   z_depth=self.placeholders.z.shape[-1].value,
+                                   max_length=self.max_length,
+                                   batch_size=self.batch_size,
+                                   vocabulary_size=self.vocabulary_size,
+                                   reuse=False)
 
-        return {"G": G, "D_real": D_real, "D_fake": D_fake, "SLOGAN_penalty": slogan_penalty}
+            D_real = discriminator(input_=self.placeholders.ohe_in,
+                                   z_depth=self.placeholders.z.shape[-1].value,
+                                   max_length=self.max_length,
+                                   batch_size=self.batch_size,
+                                   vocabulary_size=self.vocabulary_size,
+                                   reuse=True)
+        return {"G": G, "D_real": D_real, "D_fake": D_fake}
+
 
     def define_losses(self):
-        gradient_penalty = self.core_model.SLOGAN_penalty
-        with tf.variable_scope("Losses"):
-            loss_d_real = self.core_model.D_real
-            loss_d_fake = - self.core_model.D_fake
-            loss_d = loss_d_fake + loss_d_real + 1*gradient_penalty
-            loss_g = self.core_model.D_fake
-        return {"loss_d_real": loss_d_real, "loss_d_fake": loss_d_fake, "loss_d": loss_d, "loss_g": loss_g}
+        loss_d_real = l1_loss(self.core_model.D_real, self.placeholders.ohe_in)
+        loss_d_fake = l1_loss(self.core_model.D_fake, self.core_model.G)
+        loss_d = loss_d_real - self.placeholders.kt * loss_d_fake
+        loss_g = loss_d_fake
+        return {"loss_d": loss_d, "loss_g": loss_g, "loss_d_real": loss_d_real, "loss_d_fake": loss_d_fake}
 
     def define_optimizers(self):
         self.g_vars = list(filter(lambda k: "Generator" in k.name, tf.trainable_variables()))
@@ -130,11 +153,12 @@ class GAN:
 
     def define_summaries(self):
         with tf.variable_scope("Summaries"):
+            m_global = self.losses.loss_d_real + tf.abs(self.placeholders.gamma*self.losses.loss_d_real - self.losses.loss_d_fake)
             train_final_scalar_probes = {"D_loss": tf.squeeze(self.losses.loss_d),
                                          "G_loss": tf.squeeze(self.losses.loss_g),
-                                         "D_loss_original": tf.squeeze(self.losses.loss_d_real + self.losses.loss_d_fake),
                                          "GAN_Loss": tf.squeeze((self.losses.loss_d + self.losses.loss_g) / 2),
-                                         "GAN_Equilibrium": tf.squeeze(self.losses.loss_d - self.losses.loss_g)}
+                                         "GAN_Equilibrium": tf.squeeze(self.losses.loss_d - self.losses.loss_g),
+                                         "M_Global": m_global}
 
             final_performance_scalar = [tf.summary.scalar(k, tf.reduce_mean(v), family=self.name)
                                         for k, v in train_final_scalar_probes.items()]
