@@ -6,38 +6,17 @@ from src.tf_frankenstein.normalization import BatchNorm
 
 
 
-def build_discriminator(input_, reuse=False):
+def build_discriminator(input_, max_length, reuse=False):
     with tf.variable_scope("Discriminator", reuse=reuse):
-        x = tf.layers.conv1d(input_, filters=64, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1_1")
+        cell = tf.nn.rnn_cell.LSTMCell(1024, use_peepholes=True, initializer=tf.contrib.layers.xavier_initializer())
+        x,_ = tf.nn.dynamic_rnn(cell, input_, dtype=tf.float32, scope="DynamicRNN")
+        x = tf.reshape(x, shape=[-1, x.shape[2].value], name="stack_LSTM")
+        x = tf.layers.dense(x, 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
+        x = tf.layers.dense(x, 16, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
+        x = tf.reshape(x, shape=[input_.shape[0].value, max_length, 16], name="unstack_LSTM")
+        x = tf.reshape(x, shape=[input_.shape[0].value, -1], name="combination_LSTM")
+        x = tf.layers.dense(x, 1, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_o")
 
-        x = tf.layers.conv1d(x, filters=64, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_1_2")
-        x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_1")
-
-        x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_2_1")
-
-        x = tf.layers.conv1d(x, filters=128, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_2_2")
-        x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_2")
-
-        x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_3_1")
-
-        x = tf.layers.conv1d(x, filters=256, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_3_2")
-        x = tf.layers.average_pooling1d(x, pool_size=2, strides=2, name="pooling_3")
-
-        x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4_1")
-
-        x = tf.layers.conv1d(x, filters=512, kernel_size=9, padding="same", strides=1, activation=leaky_relu,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_4_2")
-        x = tf.layers.average_pooling1d(x, pool_size=8, strides=2, name="pooling_4")
-
-        x = tf.layers.conv1d(x, filters=1, kernel_size=1, strides=1, activation=None,
-                             kernel_initializer=tf.contrib.layers.xavier_initializer(), name="conv1d_5_final")
     return x
 
 
@@ -89,7 +68,7 @@ class GAN:
         self.noise_depth = noise_depth
         self.vocabulary_size = code_size
         self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
-        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00015)
+        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00005)
         self.define_computation_graph()
 
         # Aliases
@@ -122,8 +101,8 @@ class GAN:
                                 max_length=self.max_length,
                                 batch_size=self.batch_size,
                                 vocabulary_size=self.vocabulary_size)
-            D_real = build_discriminator(input_=ohe_in)
-            D_fake = build_discriminator(input_=G, reuse=True)
+            D_real = build_discriminator(input_=ohe_in, max_length=self.max_length)
+            D_fake = build_discriminator(input_=G, max_length=self.max_length, reuse=True)
 
             slogan_penalty = calculate_slogan_penalty(real_data=ohe_in,
                                                      fake_data=G,
