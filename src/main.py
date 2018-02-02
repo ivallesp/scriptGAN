@@ -22,7 +22,7 @@ batches_test = 10
 test_period = 100
 save_period = 5000
 kt = 0
-gamma = 0.5
+gamma = 0.6
 restore = False
 max_length = 64
 
@@ -113,9 +113,9 @@ while 1:
         acc_2g = te_2.evaluate(generation_clean)
         acc_3g = te_3.evaluate(generation_clean)
 
-        print("{1}\n=== Iteration {0} | 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} | 3-gram acc: {4:.5f} ===\n".format(it,
+        print("{1}\n=== Iteration {0}|kt={5:.3f} | 1-gram acc: {2:.5f} | 2-gram acc: {3:.5f} | 3-gram acc: {4:.5f} ===\n".format(it,
                                                                      "\n".join(generation[0:20]),
-                                                                     np.mean(acc_1g), np.mean(acc_2g), np.mean(acc_3g)))
+                                                                     np.mean(acc_1g), np.mean(acc_2g), np.mean(acc_3g), kt))
         st = sess.run(gan.summ.scalar_test_performance, feed_dict={gan.ph.acc_1g: np.mean(acc_1g),
                                                                    gan.ph.acc_2g: np.mean(acc_2g),
                                                                    gan.ph.acc_3g: np.mean(acc_3g)})

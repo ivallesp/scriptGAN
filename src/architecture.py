@@ -8,14 +8,19 @@ from src.tf_frankenstein.normalization import BatchNorm
 
 def encoder(input_, max_length, z_depth, reuse=False):
     with tf.variable_scope("Discriminator_encoder", reuse=reuse):
+        bn_z = BatchNorm(name="batch_normalization_z")
+        bn_d_1 = BatchNorm(name="batch_normalization_d_1")
+        bn_d_2 = BatchNorm(name="batch_normalization_d_2")
+        bn_d_3 = BatchNorm(name="batch_normalization_d_2")
+
         cell = tf.nn.rnn_cell.LSTMCell(1024, use_peepholes=True, initializer=tf.contrib.layers.xavier_initializer())
-        x,_ = tf.nn.dynamic_rnn(cell, input_, dtype=tf.float32, scope="DynamicRNN")
+        x,_ = tf.nn.dynamic_rnn(cell, bn_z(input_), dtype=tf.float32, scope="DynamicRNN")
         x = tf.reshape(x, shape=[-1, x.shape[2].value], name="stack_LSTM")
-        x = tf.layers.dense(x, 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
-        x = tf.layers.dense(x, 16, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
+        x = tf.layers.dense(bn_d_1(x), 512, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_1")
+        x = tf.layers.dense(bn_d_2(x), 16, activation=leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_2")
         x = tf.reshape(x, shape=[input_.shape[0].value, max_length, 16], name="unstack_LSTM")
         x = tf.reshape(x, shape=[input_.shape[0].value, -1], name="combination_LSTM")
-        x = tf.layers.dense(x, z_depth, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_o")
+        x = tf.layers.dense(bn_d_3(x), z_depth, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(), name="dense_o")
     return x
 
 
@@ -81,8 +86,8 @@ class GAN:
         self.max_length = max_length
         self.noise_depth = noise_depth
         self.vocabulary_size = code_size
-        self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.0001)
-        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.0001)
+        self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
+        self.optimizer_discriminator = tf.train.AdamOptimizer(learning_rate=0.00001)
         self.define_computation_graph()
 
         # Aliases
