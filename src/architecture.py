@@ -55,6 +55,8 @@ def build_generator(z, max_length, batch_size, vocabulary_size, gumbel_tao):
                                                             max_length=max_length, gumbel_tao=gumbel_tao,
                                                             name="gen_feed_back")
 
+        output_dec = tf.nn.softmax(output_dec/0.1)
+
     return output_dec
 
 

@@ -13,7 +13,7 @@ from src.text_tools import *
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "V26"
+version_id = "v38"
 logs_path = get_tensorboard_logs_path()
 batch_size = 512
 critic_its = 10
@@ -67,7 +67,7 @@ saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id)
 
 # Define generators
 latent_batch_gen = get_latent_vectors_generator(batch_size, noise_depth)
-tao_gen = exponential_decay_generator(1, 0.1, 1-1/25000)
+tao_gen = exponential_decay_generator(0.75, 0.1, 1-1/100000)
 
 # Define operations
 while 1:
