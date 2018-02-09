@@ -54,10 +54,11 @@ def build_generator(z, max_length, batch_size, vocabulary_size, gumbel_tao):
         output_dec, states_dec = build_lstm_feed_back_layer(bn_zh(zh_projected), bn_zc(zc_projected),
                                                             max_length=max_length, gumbel_tao=gumbel_tao,
                                                             name="gen_feed_back")
+        output_lstm = output_dec
 
         output_dec = tf.nn.softmax(output_dec/0.1)
 
-    return output_dec
+    return output_dec, output_lstm
 
 
 
@@ -69,7 +70,7 @@ class NameSpacer:
 
 class GAN:
     def __init__(self, batch_size=512, noise_depth=100, max_length=64, code_size=100,
-                 tao_0=1.0, tao_1=.1, tao_decay=0.99995, name="GAN"):
+                 tao_0=1.0, tao_decay=0.99995, name="GAN"):
         self.name = name
         self.n_neurons_rnn_gen = 1024
         self.batch_size = batch_size
@@ -77,7 +78,6 @@ class GAN:
         self.noise_depth = noise_depth
         self.vocabulary_size = code_size
         self.tao_initial_value = tao_0
-        self.tao_final_value = tao_1
         self.tao_decay = tao_decay
 
         self.optimizer_generator = tf.train.AdamOptimizer(learning_rate=0.00001)
@@ -105,14 +105,15 @@ class GAN:
             acc_1g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_1g")
             acc_2g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_2g")
             acc_3g = tf.placeholder(dtype=tf.float32, shape=None, name="acc_3g")
-        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g}
+            goodness = tf.placeholder(dtype=tf.float32, shape=None, name="goodness")
+        return {"codes_in": codes_in, "z": z, "acc_1g": acc_1g, "acc_2g": acc_2g, "acc_3g": acc_3g, "goodness": goodness}
 
     def define_core_model(self):
         with tf.variable_scope("Core_Model"):
             super(GAN, self).__init__()
             self.tao = tf.get_variable("tao", initializer=self.tao_initial_value, trainable=False)
             tweet = tf.one_hot(self.placeholders.codes_in, depth=self.vocabulary_size)
-            G = build_generator(z=self.placeholders.z,
+            G, G_output_lstm = build_generator(z=self.placeholders.z,
                                 max_length=self.max_length,
                                 batch_size=self.batch_size,
                                 vocabulary_size=self.vocabulary_size,
@@ -124,7 +125,7 @@ class GAN:
             D_interpolates = build_discriminator(input_=interp, reuse=True)
 
             grad_interpolated = tf.gradients(D_interpolates, [interp])[0]
-        return {"G": G, "D_real": D_real, "D_fake": D_fake, "grad_interpolated": grad_interpolated}
+        return {"G": G, "G_output_lstm": G_output_lstm, "D_real": D_real, "D_fake": D_fake, "grad_interpolated": grad_interpolated}
 
     def define_losses(self):
         grads_l2 = tf.sqrt(tf.reduce_sum(tf.square(self.core_model.grad_interpolated),
@@ -140,26 +141,28 @@ class GAN:
     def define_optimizers(self):
         self.g_vars = list(filter(lambda k: "Generator" in k.name, tf.trainable_variables()))
         self.d_vars = list(filter(lambda k: "Discriminator" in k.name, tf.trainable_variables()))
-        shrink_tao = tf.assign(self.tao, self.tao * self.tao_decay + (1 - self.tao_decay) * self.tao_final_value)
+        update_tao = lambda tao: tf.assign(self.tao, tao)
 
         with tf.variable_scope("Optimizers"):
             g_op = self.optimizer_generator.minimize(self.losses.loss_g, var_list=self.g_vars)
             d_op = self.optimizer_discriminator.minimize(self.losses.loss_d, var_list=self.d_vars)
-        return {"G": g_op, "D": d_op, "shrink_tao": shrink_tao}
+        return {"G": g_op, "D": d_op, "update_tao": update_tao}
 
     def define_summaries(self):
         with tf.variable_scope("Summaries"):
             train_final_scalar_probes = {"D_loss": tf.squeeze(self.losses.loss_d),
                                          "G_loss": tf.squeeze(self.losses.loss_g),
                                          "GAN_Loss": tf.squeeze((self.losses.loss_d + self.losses.loss_g) / 2),
-                                         "GAN_Equilibrium": tf.squeeze(self.losses.loss_d - self.losses.loss_g)}
+                                         "GAN_Equilibrium": tf.squeeze(self.losses.loss_d - self.losses.loss_g),
+                                         "tao": self.tao}
 
             final_performance_scalar = [tf.summary.scalar(k, tf.reduce_mean(v), family=self.name)
                                         for k, v in train_final_scalar_probes.items()]
 
             test_scalar_probes = {"1_gram_accuracy": self.placeholders.acc_1g,
                                   "2_gram_accuracy": self.placeholders.acc_2g,
-                                  "3_gram_accuracy": self.placeholders.acc_3g}
+                                  "3_gram_accuracy": self.placeholders.acc_3g
+                                  "goodness": self.placeholders.goodness}
             test_performance_scalar = [tf.summary.scalar(k, v, family=self.name) for k, v in test_scalar_probes.items()]
 
         return {"scalar_final_performance": tf.summary.merge(final_performance_scalar),

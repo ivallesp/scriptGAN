@@ -7,13 +7,15 @@ from src.architecture import GAN
 from src.common_paths import *
 from src.data_tools import get_latent_vectors_generator, get_sentences
 from src.general_utilities import *
+from src.tao_control import exponential_decay_generator
 from src.tensorflow_utilities import start_tensorflow_session, get_summary_writer, TensorFlowSaver
 from src.text_tools import *
+from src.tao_control import adaptive_decay_generator
 
 
 # Define parameters
 project_id = "GAN_TATOEBA"
-version_id = "v38"
+version_id = "v39"
 logs_path = get_tensorboard_logs_path()
 batch_size = 512
 critic_its = 10
@@ -67,7 +69,7 @@ saver = TensorFlowSaver(path=os.path.join(get_model_path(project_id, version_id)
 
 # Define generators
 latent_batch_gen = get_latent_vectors_generator(batch_size, noise_depth)
-tao_gen = exponential_decay_generator(0.75, 0.1, 1-1/100000)
+tao_gen = adaptive_decay_generator(1, 0.1, 0.99999, 0.9999)
 
 # Define operations
 while 1:
@@ -79,7 +81,10 @@ while 1:
     batch, _ = next(codes_batch_gen)
     z = next(latent_batch_gen)
 
-    _, tao = sess.run([gan.op.G, gan.op.shrink_tao], feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
+    _, gen = sess.run([gan.op.G, gan.core_model.G_output_lstm], feed_dict={gan.ph.codes_in: batch, gan.ph.z: z})
+    tao, goodness = tao_gen.get_value(gen)
+    sess.run(gan.op.update_tao(tao))
+
 
     if (it % test_period) == 0:  # Reporting...
         generation=[]
