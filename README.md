@@ -125,4 +125,4 @@ In order to **reproduce the experiments** discussend here, please, follow the su
 The repository is totally open for contribution. As this is a log of a set of experiments, the contributions should be done so that they do not destroy the current branches. New trials should be performed in new branches, although bug fixes in the current branches are also totally accepted.
 
 ## License
-...
+This project has been licensed under MIT agreement. Please, read the `LICENSE` file for further details. Copyright (c) 2018 Iván Vallés Pérez
